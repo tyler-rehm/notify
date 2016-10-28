@@ -13,11 +13,11 @@ class SparkServiceProvider extends ServiceProvider
      * @var array
      */
     protected $details = [
-        'vendor' => 'Your Company',
-        'product' => 'Your Product',
-        'street' => 'PO Box 111',
-        'location' => 'Your Town, NY 12345',
-        'phone' => '555-555-5555',
+        'vendor' => 'Hackrforce Technologies',
+        'product' => 'Notiifii',
+        'street' => '1142 Mazarion Place',
+        'location' => 'Trinity, Florida 34655',
+        'phone' => '727-457-2232',
     ];
 
     /**
@@ -25,7 +25,7 @@ class SparkServiceProvider extends ServiceProvider
      *
      * @var string
      */
-    protected $sendSupportEmailsTo = null;
+    protected $sendSupportEmailsTo = 'tyler@hackrforce.com';
 
     /**
      * All of the application developer e-mail addresses.
@@ -33,7 +33,7 @@ class SparkServiceProvider extends ServiceProvider
      * @var array
      */
     protected $developers = [
-        //
+        'tyler@hackrforce.com'
     ];
 
     /**
@@ -50,17 +50,17 @@ class SparkServiceProvider extends ServiceProvider
      */
     public function booted()
     {
-        Spark::useStripe()->noCardUpFront()->teamTrialDays(10);
+        Spark::useStripe()->noCardUpFront()->teamTrialDays(7);
 
         Spark::freeTeamPlan()
             ->features([
-                'First', 'Second', 'Third'
+                'Voice', 'SMS', 'Email'
             ]);
 
-        Spark::teamPlan('Basic', 'provider-id-1')
-            ->price(10)
+        Spark::teamPlan('Default', 'default')
+            ->price(9.99)
             ->features([
-                'First', 'Second', 'Third'
+                'Voice', 'SMS', 'Email'
             ]);
     }
 }
