@@ -12,9 +12,12 @@
                     <div class="panel-body">
                         Your application's dashboard.
                     </div>
+
+
                 </div>
             </div>
         </div>
+        <example></example>
     </div>
 </home>
 @endsection

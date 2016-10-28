@@ -22375,6 +22375,307 @@ Promise.disableSynchronous = function() {
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],33:[function(require,module,exports){
+var Vue // late bind
+var map = Object.create(null)
+var shimmed = false
+var isBrowserify = false
+
+/**
+ * Determine compatibility and apply patch.
+ *
+ * @param {Function} vue
+ * @param {Boolean} browserify
+ */
+
+exports.install = function (vue, browserify) {
+  if (shimmed) return
+  shimmed = true
+
+  Vue = vue
+  isBrowserify = browserify
+
+  exports.compatible = !!Vue.internalDirectives
+  if (!exports.compatible) {
+    console.warn(
+      '[HMR] vue-loader hot reload is only compatible with ' +
+      'Vue.js 1.0.0+.'
+    )
+    return
+  }
+
+  // patch view directive
+  patchView(Vue.internalDirectives.component)
+  console.log('[HMR] Vue component hot reload shim applied.')
+  // shim router-view if present
+  var routerView = Vue.elementDirective('router-view')
+  if (routerView) {
+    patchView(routerView)
+    console.log('[HMR] vue-router <router-view> hot reload shim applied.')
+  }
+}
+
+/**
+ * Shim the view directive (component or router-view).
+ *
+ * @param {Object} View
+ */
+
+function patchView (View) {
+  var unbuild = View.unbuild
+  View.unbuild = function (defer) {
+    if (!this.hotUpdating) {
+      var prevComponent = this.childVM && this.childVM.constructor
+      removeView(prevComponent, this)
+      // defer = true means we are transitioning to a new
+      // Component. Register this new component to the list.
+      if (defer) {
+        addView(this.Component, this)
+      }
+    }
+    // call original
+    return unbuild.call(this, defer)
+  }
+}
+
+/**
+ * Add a component view to a Component's hot list
+ *
+ * @param {Function} Component
+ * @param {Directive} view - view directive instance
+ */
+
+function addView (Component, view) {
+  var id = Component && Component.options.hotID
+  if (id) {
+    if (!map[id]) {
+      map[id] = {
+        Component: Component,
+        views: [],
+        instances: []
+      }
+    }
+    map[id].views.push(view)
+  }
+}
+
+/**
+ * Remove a component view from a Component's hot list
+ *
+ * @param {Function} Component
+ * @param {Directive} view - view directive instance
+ */
+
+function removeView (Component, view) {
+  var id = Component && Component.options.hotID
+  if (id) {
+    map[id].views.$remove(view)
+  }
+}
+
+/**
+ * Create a record for a hot module, which keeps track of its construcotr,
+ * instnaces and views (component directives or router-views).
+ *
+ * @param {String} id
+ * @param {Object} options
+ */
+
+exports.createRecord = function (id, options) {
+  if (typeof options === 'function') {
+    options = options.options
+  }
+  if (typeof options.el !== 'string' && typeof options.data !== 'object') {
+    makeOptionsHot(id, options)
+    map[id] = {
+      Component: null,
+      views: [],
+      instances: []
+    }
+  }
+}
+
+/**
+ * Make a Component options object hot.
+ *
+ * @param {String} id
+ * @param {Object} options
+ */
+
+function makeOptionsHot (id, options) {
+  options.hotID = id
+  injectHook(options, 'created', function () {
+    var record = map[id]
+    if (!record.Component) {
+      record.Component = this.constructor
+    }
+    record.instances.push(this)
+  })
+  injectHook(options, 'beforeDestroy', function () {
+    map[id].instances.$remove(this)
+  })
+}
+
+/**
+ * Inject a hook to a hot reloadable component so that
+ * we can keep track of it.
+ *
+ * @param {Object} options
+ * @param {String} name
+ * @param {Function} hook
+ */
+
+function injectHook (options, name, hook) {
+  var existing = options[name]
+  options[name] = existing
+    ? Array.isArray(existing)
+      ? existing.concat(hook)
+      : [existing, hook]
+    : [hook]
+}
+
+/**
+ * Update a hot component.
+ *
+ * @param {String} id
+ * @param {Object|null} newOptions
+ * @param {String|null} newTemplate
+ */
+
+exports.update = function (id, newOptions, newTemplate) {
+  var record = map[id]
+  // force full-reload if an instance of the component is active but is not
+  // managed by a view
+  if (!record || (record.instances.length && !record.views.length)) {
+    console.log('[HMR] Root or manually-mounted instance modified. Full reload may be required.')
+    if (!isBrowserify) {
+      window.location.reload()
+    } else {
+      // browserify-hmr somehow sends incomplete bundle if we reload here
+      return
+    }
+  }
+  if (!isBrowserify) {
+    // browserify-hmr already logs this
+    console.log('[HMR] Updating component: ' + format(id))
+  }
+  var Component = record.Component
+  // update constructor
+  if (newOptions) {
+    // in case the user exports a constructor
+    Component = record.Component = typeof newOptions === 'function'
+      ? newOptions
+      : Vue.extend(newOptions)
+    makeOptionsHot(id, Component.options)
+  }
+  if (newTemplate) {
+    Component.options.template = newTemplate
+  }
+  // handle recursive lookup
+  if (Component.options.name) {
+    Component.options.components[Component.options.name] = Component
+  }
+  // reset constructor cached linker
+  Component.linker = null
+  // reload all views
+  record.views.forEach(function (view) {
+    updateView(view, Component)
+  })
+  // flush devtools
+  if (window.__VUE_DEVTOOLS_GLOBAL_HOOK__) {
+    window.__VUE_DEVTOOLS_GLOBAL_HOOK__.emit('flush')
+  }
+}
+
+/**
+ * Update a component view instance
+ *
+ * @param {Directive} view
+ * @param {Function} Component
+ */
+
+function updateView (view, Component) {
+  if (!view._bound) {
+    return
+  }
+  view.Component = Component
+  view.hotUpdating = true
+  // disable transitions
+  view.vm._isCompiled = false
+  // save state
+  var state = extractState(view.childVM)
+  // remount, make sure to disable keep-alive
+  var keepAlive = view.keepAlive
+  view.keepAlive = false
+  view.mountComponent()
+  view.keepAlive = keepAlive
+  // restore state
+  restoreState(view.childVM, state, true)
+  // re-eanble transitions
+  view.vm._isCompiled = true
+  view.hotUpdating = false
+}
+
+/**
+ * Extract state from a Vue instance.
+ *
+ * @param {Vue} vm
+ * @return {Object}
+ */
+
+function extractState (vm) {
+  return {
+    cid: vm.constructor.cid,
+    data: vm.$data,
+    children: vm.$children.map(extractState)
+  }
+}
+
+/**
+ * Restore state to a reloaded Vue instance.
+ *
+ * @param {Vue} vm
+ * @param {Object} state
+ */
+
+function restoreState (vm, state, isRoot) {
+  var oldAsyncConfig
+  if (isRoot) {
+    // set Vue into sync mode during state rehydration
+    oldAsyncConfig = Vue.config.async
+    Vue.config.async = false
+  }
+  // actual restore
+  if (isRoot || !vm._props) {
+    vm.$data = state.data
+  } else {
+    Object.keys(state.data).forEach(function (key) {
+      if (!vm._props[key]) {
+        // for non-root, only restore non-props fields
+        vm.$data[key] = state.data[key]
+      }
+    })
+  }
+  // verify child consistency
+  var hasSameChildren = vm.$children.every(function (c, i) {
+    return state.children[i] && state.children[i].cid === c.constructor.cid
+  })
+  if (hasSameChildren) {
+    // rehydrate children
+    vm.$children.forEach(function (c, i) {
+      restoreState(c, state.children[i])
+    })
+  }
+  if (isRoot) {
+    Vue.config.async = oldAsyncConfig
+  }
+}
+
+function format (id) {
+  var match = id.match(/[^\/]+\.vue$/)
+  return match ? match[0] : id
+}
+
+},{}],34:[function(require,module,exports){
 /*!
  * vue-resource v1.0.3
  * https://github.com/vuejs/vue-resource
@@ -23893,7 +24194,7 @@ if (typeof window !== 'undefined' && window.Vue) {
 }
 
 module.exports = plugin;
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 (function (process){
 /*!
  * Vue.js v1.0.28
@@ -34134,7 +34435,7 @@ setTimeout(function () {
 
 module.exports = Vue;
 }).call(this,require('_process'))
-},{"_process":19}],35:[function(require,module,exports){
+},{"_process":19}],36:[function(require,module,exports){
 'use strict';
 
 /*
@@ -34160,7 +34461,7 @@ var app = new Vue({
   mixins: [require('spark')]
 });
 
-},{"./components/bootstrap":36,"spark":150,"spark-bootstrap":149}],36:[function(require,module,exports){
+},{"./components/bootstrap":37,"spark":152,"spark-bootstrap":151}],37:[function(require,module,exports){
 'use strict';
 
 /*
@@ -34177,7 +34478,30 @@ require('./../spark-components/bootstrap');
 
 require('./home');
 
-},{"./../spark-components/bootstrap":40,"./home":37}],37:[function(require,module,exports){
+},{"./../spark-components/bootstrap":42,"./home":39}],38:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.default = {
+    ready: function ready() {
+        console.log('Component ready.');
+    }
+};
+if (module.exports.__esModule) module.exports = module.exports.default
+;(typeof module.exports === "function"? module.exports.options: module.exports).template = "\n<div class=\"row\">\n    <div class=\"col-md-8 col-md-offset-2\">\n        <div class=\"panel panel-default\">\n            <div class=\"panel-heading\">Example Component</div>\n\n            <div class=\"panel-body\">\n                I'm an example component!\n            </div>\n        </div>\n    </div>\n</div>\n"
+if (module.hot) {(function () {  module.hot.accept()
+  var hotAPI = require("vue-hot-reload-api")
+  hotAPI.install(require("vue"), true)
+  if (!hotAPI.compatible) return
+  if (!module.hot.data) {
+    hotAPI.createRecord("_v-6e57f201", module.exports)
+  } else {
+    hotAPI.update("_v-6e57f201", module.exports, (typeof module.exports === "function" ? module.exports.options : module.exports).template)
+  }
+})()}
+},{"vue":35,"vue-hot-reload-api":33}],39:[function(require,module,exports){
 'use strict';
 
 Vue.component('home', {
@@ -34188,7 +34512,9 @@ Vue.component('home', {
     }
 });
 
-},{}],38:[function(require,module,exports){
+Vue.component('example', require('./example.vue'));
+
+},{"./example.vue":38}],40:[function(require,module,exports){
 'use strict';
 
 var base = require('auth/register-braintree');
@@ -34197,7 +34523,7 @@ Vue.component('spark-register-braintree', {
     mixins: [base]
 });
 
-},{"auth/register-braintree":87}],39:[function(require,module,exports){
+},{"auth/register-braintree":89}],41:[function(require,module,exports){
 'use strict';
 
 var base = require('auth/register-stripe');
@@ -34206,7 +34532,7 @@ Vue.component('spark-register-stripe', {
     mixins: [base]
 });
 
-},{"auth/register-stripe":88}],40:[function(require,module,exports){
+},{"auth/register-stripe":90}],42:[function(require,module,exports){
 'use strict';
 
 /**
@@ -34301,7 +34627,7 @@ require('./kiosk/users');
 require('./kiosk/profile');
 require('./kiosk/add-discount');
 
-},{"./auth/register-braintree":38,"./auth/register-stripe":39,"./kiosk/add-discount":41,"./kiosk/announcements":42,"./kiosk/kiosk":43,"./kiosk/metrics":44,"./kiosk/profile":45,"./kiosk/users":46,"./navbar/navbar":47,"./notifications/notifications":48,"./settings/api":49,"./settings/api/create-token":50,"./settings/api/tokens":51,"./settings/invoices":52,"./settings/invoices/invoice-list":53,"./settings/invoices/update-extra-billing-information":54,"./settings/payment-method-braintree":55,"./settings/payment-method-stripe":56,"./settings/payment-method/redeem-coupon":57,"./settings/payment-method/update-payment-method-braintree":58,"./settings/payment-method/update-payment-method-stripe":59,"./settings/payment-method/update-vat-id":60,"./settings/profile":61,"./settings/profile/update-contact-information":62,"./settings/profile/update-profile-photo":63,"./settings/security":64,"./settings/security/disable-two-factor-auth":65,"./settings/security/enable-two-factor-auth":66,"./settings/security/update-password":67,"./settings/settings":68,"./settings/subscription":69,"./settings/subscription/cancel-subscription":70,"./settings/subscription/resume-subscription":71,"./settings/subscription/subscribe-braintree":72,"./settings/subscription/subscribe-stripe":73,"./settings/subscription/update-subscription":74,"./settings/teams":75,"./settings/teams/create-team":76,"./settings/teams/current-teams":77,"./settings/teams/mailed-invitations":78,"./settings/teams/pending-invitations":79,"./settings/teams/send-invitation":80,"./settings/teams/team-members":81,"./settings/teams/team-membership":82,"./settings/teams/team-profile":83,"./settings/teams/team-settings":84,"./settings/teams/update-team-name":85,"./settings/teams/update-team-photo":86}],41:[function(require,module,exports){
+},{"./auth/register-braintree":40,"./auth/register-stripe":41,"./kiosk/add-discount":43,"./kiosk/announcements":44,"./kiosk/kiosk":45,"./kiosk/metrics":46,"./kiosk/profile":47,"./kiosk/users":48,"./navbar/navbar":49,"./notifications/notifications":50,"./settings/api":51,"./settings/api/create-token":52,"./settings/api/tokens":53,"./settings/invoices":54,"./settings/invoices/invoice-list":55,"./settings/invoices/update-extra-billing-information":56,"./settings/payment-method-braintree":57,"./settings/payment-method-stripe":58,"./settings/payment-method/redeem-coupon":59,"./settings/payment-method/update-payment-method-braintree":60,"./settings/payment-method/update-payment-method-stripe":61,"./settings/payment-method/update-vat-id":62,"./settings/profile":63,"./settings/profile/update-contact-information":64,"./settings/profile/update-profile-photo":65,"./settings/security":66,"./settings/security/disable-two-factor-auth":67,"./settings/security/enable-two-factor-auth":68,"./settings/security/update-password":69,"./settings/settings":70,"./settings/subscription":71,"./settings/subscription/cancel-subscription":72,"./settings/subscription/resume-subscription":73,"./settings/subscription/subscribe-braintree":74,"./settings/subscription/subscribe-stripe":75,"./settings/subscription/update-subscription":76,"./settings/teams":77,"./settings/teams/create-team":78,"./settings/teams/current-teams":79,"./settings/teams/mailed-invitations":80,"./settings/teams/pending-invitations":81,"./settings/teams/send-invitation":82,"./settings/teams/team-members":83,"./settings/teams/team-membership":84,"./settings/teams/team-profile":85,"./settings/teams/team-settings":86,"./settings/teams/update-team-name":87,"./settings/teams/update-team-photo":88}],43:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/add-discount');
@@ -34310,7 +34636,7 @@ Vue.component('spark-kiosk-add-discount', {
     mixins: [base]
 });
 
-},{"kiosk/add-discount":95}],42:[function(require,module,exports){
+},{"kiosk/add-discount":97}],44:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/announcements');
@@ -34319,7 +34645,7 @@ Vue.component('spark-kiosk-announcements', {
     mixins: [base]
 });
 
-},{"kiosk/announcements":96}],43:[function(require,module,exports){
+},{"kiosk/announcements":98}],45:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/kiosk');
@@ -34328,7 +34654,7 @@ Vue.component('spark-kiosk', {
     mixins: [base]
 });
 
-},{"kiosk/kiosk":97}],44:[function(require,module,exports){
+},{"kiosk/kiosk":99}],46:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/metrics');
@@ -34337,7 +34663,7 @@ Vue.component('spark-kiosk-metrics', {
     mixins: [base]
 });
 
-},{"kiosk/metrics":98}],45:[function(require,module,exports){
+},{"kiosk/metrics":100}],47:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/profile');
@@ -34346,7 +34672,7 @@ Vue.component('spark-kiosk-profile', {
     mixins: [base]
 });
 
-},{"kiosk/profile":99}],46:[function(require,module,exports){
+},{"kiosk/profile":101}],48:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/users');
@@ -34355,7 +34681,7 @@ Vue.component('spark-kiosk-users', {
     mixins: [base]
 });
 
-},{"kiosk/users":100}],47:[function(require,module,exports){
+},{"kiosk/users":102}],49:[function(require,module,exports){
 'use strict';
 
 var base = require('navbar/navbar');
@@ -34364,7 +34690,7 @@ Vue.component('spark-navbar', {
     mixins: [base]
 });
 
-},{"navbar/navbar":109}],48:[function(require,module,exports){
+},{"navbar/navbar":111}],50:[function(require,module,exports){
 'use strict';
 
 var base = require('notifications/notifications');
@@ -34373,7 +34699,7 @@ Vue.component('spark-notifications', {
     mixins: [base]
 });
 
-},{"notifications/notifications":110}],49:[function(require,module,exports){
+},{"notifications/notifications":112}],51:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/api');
@@ -34382,7 +34708,7 @@ Vue.component('spark-api', {
     mixins: [base]
 });
 
-},{"settings/api":111}],50:[function(require,module,exports){
+},{"settings/api":113}],52:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/api/create-token');
@@ -34391,7 +34717,7 @@ Vue.component('spark-create-token', {
     mixins: [base]
 });
 
-},{"settings/api/create-token":112}],51:[function(require,module,exports){
+},{"settings/api/create-token":114}],53:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/api/tokens');
@@ -34400,7 +34726,7 @@ Vue.component('spark-tokens', {
     mixins: [base]
 });
 
-},{"settings/api/tokens":113}],52:[function(require,module,exports){
+},{"settings/api/tokens":115}],54:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/invoices');
@@ -34409,7 +34735,7 @@ Vue.component('spark-invoices', {
     mixins: [base]
 });
 
-},{"settings/invoices":114}],53:[function(require,module,exports){
+},{"settings/invoices":116}],55:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/invoices/invoice-list');
@@ -34418,7 +34744,7 @@ Vue.component('spark-invoice-list', {
     mixins: [base]
 });
 
-},{"settings/invoices/invoice-list":115}],54:[function(require,module,exports){
+},{"settings/invoices/invoice-list":117}],56:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/invoices/update-extra-billing-information');
@@ -34427,7 +34753,7 @@ Vue.component('spark-update-extra-billing-information', {
     mixins: [base]
 });
 
-},{"settings/invoices/update-extra-billing-information":116}],55:[function(require,module,exports){
+},{"settings/invoices/update-extra-billing-information":118}],57:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method-braintree');
@@ -34436,7 +34762,7 @@ Vue.component('spark-payment-method-braintree', {
     mixins: [base]
 });
 
-},{"settings/payment-method-braintree":117}],56:[function(require,module,exports){
+},{"settings/payment-method-braintree":119}],58:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method-stripe');
@@ -34445,7 +34771,7 @@ Vue.component('spark-payment-method-stripe', {
     mixins: [base]
 });
 
-},{"settings/payment-method-stripe":118}],57:[function(require,module,exports){
+},{"settings/payment-method-stripe":120}],59:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/redeem-coupon');
@@ -34454,7 +34780,7 @@ Vue.component('spark-redeem-coupon', {
     mixins: [base]
 });
 
-},{"settings/payment-method/redeem-coupon":119}],58:[function(require,module,exports){
+},{"settings/payment-method/redeem-coupon":121}],60:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/update-payment-method-braintree');
@@ -34463,7 +34789,7 @@ Vue.component('spark-update-payment-method-braintree', {
     mixins: [base]
 });
 
-},{"settings/payment-method/update-payment-method-braintree":120}],59:[function(require,module,exports){
+},{"settings/payment-method/update-payment-method-braintree":122}],61:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/update-payment-method-stripe');
@@ -34472,7 +34798,7 @@ Vue.component('spark-update-payment-method-stripe', {
     mixins: [base]
 });
 
-},{"settings/payment-method/update-payment-method-stripe":121}],60:[function(require,module,exports){
+},{"settings/payment-method/update-payment-method-stripe":123}],62:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/update-vat-id');
@@ -34481,7 +34807,7 @@ Vue.component('spark-update-vat-id', {
     mixins: [base]
 });
 
-},{"settings/payment-method/update-vat-id":122}],61:[function(require,module,exports){
+},{"settings/payment-method/update-vat-id":124}],63:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/profile');
@@ -34490,7 +34816,7 @@ Vue.component('spark-profile', {
     mixins: [base]
 });
 
-},{"settings/profile":123}],62:[function(require,module,exports){
+},{"settings/profile":125}],64:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/profile/update-contact-information');
@@ -34499,7 +34825,7 @@ Vue.component('spark-update-contact-information', {
     mixins: [base]
 });
 
-},{"settings/profile/update-contact-information":124}],63:[function(require,module,exports){
+},{"settings/profile/update-contact-information":126}],65:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/profile/update-profile-photo');
@@ -34508,7 +34834,7 @@ Vue.component('spark-update-profile-photo', {
     mixins: [base]
 });
 
-},{"settings/profile/update-profile-photo":125}],64:[function(require,module,exports){
+},{"settings/profile/update-profile-photo":127}],66:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security');
@@ -34517,7 +34843,7 @@ Vue.component('spark-security', {
     mixins: [base]
 });
 
-},{"settings/security":126}],65:[function(require,module,exports){
+},{"settings/security":128}],67:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security/disable-two-factor-auth');
@@ -34526,7 +34852,7 @@ Vue.component('spark-disable-two-factor-auth', {
     mixins: [base]
 });
 
-},{"settings/security/disable-two-factor-auth":127}],66:[function(require,module,exports){
+},{"settings/security/disable-two-factor-auth":129}],68:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security/enable-two-factor-auth');
@@ -34535,7 +34861,7 @@ Vue.component('spark-enable-two-factor-auth', {
     mixins: [base]
 });
 
-},{"settings/security/enable-two-factor-auth":128}],67:[function(require,module,exports){
+},{"settings/security/enable-two-factor-auth":130}],69:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security/update-password');
@@ -34544,7 +34870,7 @@ Vue.component('spark-update-password', {
     mixins: [base]
 });
 
-},{"settings/security/update-password":129}],68:[function(require,module,exports){
+},{"settings/security/update-password":131}],70:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/settings');
@@ -34553,7 +34879,7 @@ Vue.component('spark-settings', {
     mixins: [base]
 });
 
-},{"settings/settings":130}],69:[function(require,module,exports){
+},{"settings/settings":132}],71:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription');
@@ -34562,7 +34888,7 @@ Vue.component('spark-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription":131}],70:[function(require,module,exports){
+},{"settings/subscription":133}],72:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/cancel-subscription');
@@ -34571,7 +34897,7 @@ Vue.component('spark-cancel-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription/cancel-subscription":132}],71:[function(require,module,exports){
+},{"settings/subscription/cancel-subscription":134}],73:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/resume-subscription');
@@ -34580,7 +34906,7 @@ Vue.component('spark-resume-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription/resume-subscription":133}],72:[function(require,module,exports){
+},{"settings/subscription/resume-subscription":135}],74:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/subscribe-braintree');
@@ -34589,7 +34915,7 @@ Vue.component('spark-subscribe-braintree', {
     mixins: [base]
 });
 
-},{"settings/subscription/subscribe-braintree":134}],73:[function(require,module,exports){
+},{"settings/subscription/subscribe-braintree":136}],75:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/subscribe-stripe');
@@ -34598,7 +34924,7 @@ Vue.component('spark-subscribe-stripe', {
     mixins: [base]
 });
 
-},{"settings/subscription/subscribe-stripe":135}],74:[function(require,module,exports){
+},{"settings/subscription/subscribe-stripe":137}],76:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/update-subscription');
@@ -34607,7 +34933,7 @@ Vue.component('spark-update-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription/update-subscription":136}],75:[function(require,module,exports){
+},{"settings/subscription/update-subscription":138}],77:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams');
@@ -34616,7 +34942,7 @@ Vue.component('spark-teams', {
     mixins: [base]
 });
 
-},{"settings/teams":137}],76:[function(require,module,exports){
+},{"settings/teams":139}],78:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/create-team');
@@ -34625,7 +34951,7 @@ Vue.component('spark-create-team', {
     mixins: [base]
 });
 
-},{"settings/teams/create-team":138}],77:[function(require,module,exports){
+},{"settings/teams/create-team":140}],79:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/current-teams');
@@ -34634,7 +34960,7 @@ Vue.component('spark-current-teams', {
     mixins: [base]
 });
 
-},{"settings/teams/current-teams":139}],78:[function(require,module,exports){
+},{"settings/teams/current-teams":141}],80:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/mailed-invitations');
@@ -34643,7 +34969,7 @@ Vue.component('spark-mailed-invitations', {
     mixins: [base]
 });
 
-},{"settings/teams/mailed-invitations":140}],79:[function(require,module,exports){
+},{"settings/teams/mailed-invitations":142}],81:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/pending-invitations');
@@ -34652,7 +34978,7 @@ Vue.component('spark-pending-invitations', {
     mixins: [base]
 });
 
-},{"settings/teams/pending-invitations":141}],80:[function(require,module,exports){
+},{"settings/teams/pending-invitations":143}],82:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/send-invitation');
@@ -34661,7 +34987,7 @@ Vue.component('spark-send-invitation', {
     mixins: [base]
 });
 
-},{"settings/teams/send-invitation":142}],81:[function(require,module,exports){
+},{"settings/teams/send-invitation":144}],83:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-members');
@@ -34670,7 +34996,7 @@ Vue.component('spark-team-members', {
     mixins: [base]
 });
 
-},{"settings/teams/team-members":143}],82:[function(require,module,exports){
+},{"settings/teams/team-members":145}],84:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-membership');
@@ -34679,7 +35005,7 @@ Vue.component('spark-team-membership', {
     mixins: [base]
 });
 
-},{"settings/teams/team-membership":144}],83:[function(require,module,exports){
+},{"settings/teams/team-membership":146}],85:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-profile');
@@ -34688,7 +35014,7 @@ Vue.component('spark-team-profile', {
     mixins: [base]
 });
 
-},{"settings/teams/team-profile":145}],84:[function(require,module,exports){
+},{"settings/teams/team-profile":147}],86:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-settings');
@@ -34697,7 +35023,7 @@ Vue.component('spark-team-settings', {
     mixins: [base]
 });
 
-},{"settings/teams/team-settings":146}],85:[function(require,module,exports){
+},{"settings/teams/team-settings":148}],87:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/update-team-name');
@@ -34706,7 +35032,7 @@ Vue.component('spark-update-team-name', {
     mixins: [base]
 });
 
-},{"settings/teams/update-team-name":147}],86:[function(require,module,exports){
+},{"settings/teams/update-team-name":149}],88:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/update-team-photo');
@@ -34715,7 +35041,7 @@ Vue.component('spark-update-team-photo', {
     mixins: [base]
 });
 
-},{"settings/teams/update-team-photo":148}],87:[function(require,module,exports){
+},{"settings/teams/update-team-photo":150}],89:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -34739,6 +35065,7 @@ module.exports = {
                 braintree_token: '',
                 plan: '',
                 team: '',
+                team_slug: '',
                 name: '',
                 email: '',
                 password: '',
@@ -34750,6 +35077,17 @@ module.exports = {
         };
     },
 
+
+    watch: {
+        /**
+         * Watch the team name for changes.
+         */
+        'registerForm.team': function registerFormTeam(val, oldVal) {
+            if (this.registerForm.team_slug == '' || this.registerForm.team_slug == oldVal.toLowerCase().replace(/[\s\W-]+/g, '-')) {
+                this.registerForm.team_slug = val.toLowerCase().replace(/[\s\W-]+/g, '-');
+            }
+        }
+    },
 
     /**
      * The component has been created by Vue.
@@ -34776,7 +35114,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.configureBraintree();
     },
 
@@ -34828,13 +35166,13 @@ module.exports = {
          */
         discount: function discount() {
             if (this.coupon) {
-                return Vue.filter('currency')(this.coupon.amount_off, Spark.currencySymbol);
+                return Vue.filter('currency')(this.coupon.amount_off);
             }
         }
     }
 };
 
-},{"./../mixins/braintree":102,"./../mixins/plans":104,"./../mixins/register":105}],88:[function(require,module,exports){
+},{"./../mixins/braintree":104,"./../mixins/plans":106,"./../mixins/register":107}],90:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -34860,6 +35198,7 @@ module.exports = {
                 stripe_token: '',
                 plan: '',
                 team: '',
+                team_slug: '',
                 name: '',
                 email: '',
                 password: '',
@@ -34897,6 +35236,15 @@ module.exports = {
             }
 
             this.refreshTaxRate(this.registerForm);
+        },
+
+        /**
+         * Watch the team name for changes.
+         */
+        'registerForm.team': function registerFormTeam(val, oldVal) {
+            if (this.registerForm.team_slug == '' || this.registerForm.team_slug == oldVal.toLowerCase().replace(/[\s\W-]+/g, '-')) {
+                this.registerForm.team_slug = val.toLowerCase().replace(/[\s\W-]+/g, '-');
+            }
         }
     },
 
@@ -34929,7 +35277,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         //
     },
 
@@ -35044,7 +35392,7 @@ module.exports = {
                 if (this.coupon.percent_off) {
                     return this.coupon.percent_off + '%';
                 } else {
-                    return Vue.filter('currency')(this.coupon.amount_off / 100, Spark.currencySymbol);
+                    return Vue.filter('currency')(this.coupon.amount_off / 100);
                 }
             }
         },
@@ -35061,31 +35409,71 @@ module.exports = {
     }
 };
 
-},{"./../mixins/plans":104,"./../mixins/register":105,"./../mixins/vat":108}],89:[function(require,module,exports){
+},{"./../mixins/plans":106,"./../mixins/register":107,"./../mixins/vat":110}],91:[function(require,module,exports){
 'use strict';
 
 /**
  * Format the given date.
  */
 Vue.filter('date', function (value) {
-  return moment.utc(value).local().format('MMMM Do, YYYY');
+    return moment.utc(value).local().format('MMMM Do, YYYY');
 });
 
 /**
  * Format the given date as a timestamp.
  */
 Vue.filter('datetime', function (value) {
-  return moment.utc(value).local().format('MMMM Do, YYYY h:mm A');
+    return moment.utc(value).local().format('MMMM Do, YYYY h:mm A');
 });
 
 /**
  * Format the given date into a relative time.
  */
 Vue.filter('relative', function (value) {
-  return moment.utc(value).local().locale('en-short').fromNow();
+    return moment.utc(value).local().locale('en-short').fromNow();
 });
 
-},{}],90:[function(require,module,exports){
+/**
+ * Convert the first character to upper case.
+ *
+ * Source: https://github.com/vuejs/vue/blob/1.0/src/filters/index.js#L37
+ */
+Vue.filter('capitalize', function (value) {
+    if (!value && value !== 0) {
+        return '';
+    }
+
+    return value.toString().charAt(0).toUpperCase() + value.slice(1);
+});
+
+/**
+ * Format the given money value.
+ *
+ * Source: https://github.com/vuejs/vue/blob/1.0/src/filters/index.js#L70
+ */
+Vue.filter('currency', function (value) {
+    value = parseFloat(value);
+
+    if (!isFinite(value) || !value && value !== 0) {
+        return '';
+    }
+
+    var stringified = Math.abs(value).toFixed(2);
+
+    var _int = stringified.slice(0, -1 - 2);
+
+    var i = _int.length % 3;
+
+    var head = i > 0 ? _int.slice(0, i) + (_int.length > 3 ? ',' : '') : '';
+
+    var _float = stringified.slice(-1 - 2);
+
+    var sign = value < 0 ? '-' : '';
+
+    return sign + window.Spark.currencySymbol + head + _int.slice(i).replace(/(\d{3})(?=\d)/g, '$1,') + _float;
+});
+
+},{}],92:[function(require,module,exports){
 'use strict';
 
 /**
@@ -35112,7 +35500,7 @@ require('./errors');
  */
 $.extend(Spark, require('./http'));
 
-},{"./errors":91,"./form":92,"./http":93}],91:[function(require,module,exports){
+},{"./errors":93,"./form":94,"./http":95}],93:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
@@ -35172,14 +35560,18 @@ window.SparkFormErrors = function () {
     };
 
     /**
-     * Forget all of the errors currently in the collection.
+     * Remove errors from the collection.
      */
-    this.forget = function () {
-        this.errors = {};
+    this.forget = function (field) {
+        if (typeof field === 'undefined') {
+            this.errors = {};
+        } else {
+            Vue.delete(this.errors, field);
+        }
     };
 };
 
-},{}],92:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 "use strict";
 
 /**
@@ -35222,7 +35614,7 @@ window.SparkForm = function (data) {
     form.errors.forget();
     form.busy = false;
     form.successful = false;
-  },
+  };
 
   /**
    * Set the errors on the form.
@@ -35233,7 +35625,7 @@ window.SparkForm = function (data) {
   };
 };
 
-},{}],93:[function(require,module,exports){
+},{}],95:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35250,6 +35642,14 @@ module.exports = {
      */
     put: function put(uri, form) {
         return Spark.sendForm('put', uri, form);
+    },
+
+
+    /**
+     * Helper method for making PATCH HTTP requests.
+     */
+    patch: function patch(uri, form) {
+        return Spark.sendForm('patch', uri, form);
     },
 
 
@@ -35284,12 +35684,16 @@ module.exports = {
     }
 };
 
-},{}],94:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 'use strict';
 
 module.exports = function (request, next) {
 
-    request.headers.set('X-XSRF-TOKEN', Cookies.get('XSRF-TOKEN'));
+    if (Cookies.get('XSRF-TOKEN') !== undefined) {
+        request.headers.set('X-XSRF-TOKEN', Cookies.get('XSRF-TOKEN'));
+    }
+
+    request.headers.set('X-CSRF-TOKEN', Spark.csrfToken);
 
     /**
      * Intercept the incoming responses.
@@ -35310,7 +35714,7 @@ module.exports = function (request, next) {
     });
 };
 
-},{}],95:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 'use strict';
 
 function kioskAddDiscountForm() {
@@ -35339,18 +35743,21 @@ module.exports = {
     },
 
 
-    events: {
-        /**
-         * Confirm the discount for the given user.
-         */
-        addDiscount: function addDiscount(user) {
-            this.form = new SparkForm(kioskAddDiscountForm());
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        var self = this;
 
-            this.setUser(user);
+        Bus.$on('addDiscount', function (user) {
+            self.form = new SparkForm(kioskAddDiscountForm());
+
+            self.setUser(user);
 
             $('#modal-add-discount').modal('show');
-        }
+        });
     },
+
 
     methods: {
         /**
@@ -35374,7 +35781,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/discounts":103}],96:[function(require,module,exports){
+},{"./../mixins/discounts":105}],98:[function(require,module,exports){
 'use strict';
 
 var announcementsCreateForm = function announcementsCreateForm() {
@@ -35403,16 +35810,19 @@ module.exports = {
     },
 
 
-    events: {
-        /**
-         * Handle this component becoming the active tab.
-         */
-        sparkHashChanged: function sparkHashChanged(hash) {
-            if (hash == 'announcements' && this.announcements.length === 0) {
-                this.getAnnouncements();
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        var self = this;
+
+        Bus.$on('sparkHashChanged', function (hash, parameters) {
+            if (hash == 'announcements' && self.announcements.length === 0) {
+                self.getAnnouncements();
             }
-        }
+        });
     },
+
 
     methods: {
         /**
@@ -35483,7 +35893,7 @@ module.exports = {
         /**
          * Delete the specified announcement.
          */
-        delete: function _delete() {
+        deleteAnnouncement: function deleteAnnouncement() {
             var _this4 = this;
 
             Spark.delete('/spark/kiosk/announcements/' + this.deletingAnnouncement.id, this.deleteForm).then(function () {
@@ -35495,7 +35905,7 @@ module.exports = {
     }
 };
 
-},{}],97:[function(require,module,exports){
+},{}],99:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35509,16 +35919,16 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.usePushStateForTabs('.spark-settings-tabs');
     },
 
 
-    events: {
-        /**
-         * Handle the Spark tab changed event.
-         */
-        sparkHashChanged: function sparkHashChanged(hash) {
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        Bus.$on('sparkHashChanged', function (hash, parameters) {
             if (hash == 'users') {
                 setTimeout(function () {
                     $('#kiosk-users-search').focus();
@@ -35526,11 +35936,11 @@ module.exports = {
             }
 
             return true;
-        }
+        });
     }
 };
 
-},{"./../mixins/tab-state":107}],98:[function(require,module,exports){
+},{"./../mixins/tab-state":109}],100:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35555,19 +35965,22 @@ module.exports = {
     },
 
 
-    events: {
-        /**
-         * Handle this component becoming the active tab.
-         */
-        sparkHashChanged: function sparkHashChanged(hash) {
-            if (hash == 'metrics' && this.yearlyRecurringRevenue === 0) {
-                this.getRevenue();
-                this.getPlans();
-                this.getTrialUsers();
-                this.getPerformanceIndicators();
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        var self = this;
+
+        Bus.$on('sparkHashChanged', function (hash, parameters) {
+            if (hash == 'metrics' && self.yearlyRecurringRevenue === 0) {
+                self.getRevenue();
+                self.getPlans();
+                self.getTrialUsers();
+                self.getPerformanceIndicators();
             }
-        }
+        });
     },
+
 
     methods: {
         /**
@@ -35682,7 +36095,7 @@ module.exports = {
          */
         drawCurrencyChart: function drawCurrencyChart(id, days, dataGatherer) {
             return this.drawChart(id, days, dataGatherer, function (value) {
-                return Vue.filter('currency')(value.value, Spark.currencySymbol);
+                return Vue.filter('currency')(value.value);
             });
         },
 
@@ -35812,7 +36225,7 @@ module.exports = {
     }
 };
 
-},{}],99:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35831,9 +36244,21 @@ module.exports = {
 
 
     /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        var self = this;
+
+        this.$parent.$on('showUserProfile', function (id) {
+            self.getUserProfile(id);
+        });
+    },
+
+
+    /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         var _this = this;
 
         Mousetrap.bind('esc', function (e) {
@@ -35841,15 +36266,6 @@ module.exports = {
         });
     },
 
-
-    events: {
-        /**
-         * Watch the current profile user for changes.
-         */
-        showUserProfile: function showUserProfile(id) {
-            this.getUserProfile(id);
-        }
-    },
 
     methods: {
         /**
@@ -35881,7 +36297,7 @@ module.exports = {
          * Show the discount modal for the given user.
          */
         addDiscount: function addDiscount(user) {
-            this.$broadcast('addDiscount', user);
+            Bus.$emit('addDiscount', user);
         },
 
 
@@ -35953,14 +36369,14 @@ module.exports = {
          * Show the search results and hide the user profile.
          */
         showSearch: function showSearch() {
-            this.$dispatch('showSearch');
+            this.$parent.$emit('showSearch');
 
             this.profile = null;
         }
     }
 };
 
-},{}],100:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35990,36 +36406,29 @@ module.exports = {
      * The component has been created by Vue.
      */
     created: function created() {
+        var self = this;
+
         this.getPlans();
-    },
 
+        this.$on('showSearch', function () {
+            self.navigateToSearch();
+        });
 
-    events: {
-        /**
-         * Show the search results and hide the user profile.
-         */
-        showSearch: function showSearch() {
-            this.navigateToSearch();
-        },
-
-
-        /**
-         * Handle the Spark tab changed event.
-         */
-        sparkHashChanged: function sparkHashChanged(hash, parameters) {
+        Bus.$on('sparkHashChanged', function (hash, parameters) {
             if (hash != 'users') {
                 return true;
             }
 
             if (parameters && parameters.length > 0) {
-                this.loadProfile({ id: parameters[0] });
+                self.loadProfile({ id: parameters[0] });
             } else {
-                this.showSearch();
+                self.showSearch();
             }
 
             return true;
-        }
+        });
     },
+
 
     methods: {
         /**
@@ -36086,14 +36495,14 @@ module.exports = {
          * Load the user profile for the given user.
          */
         loadProfile: function loadProfile(user) {
-            this.$broadcast('showUserProfile', user.id);
+            this.$emit('showUserProfile', user.id);
 
             this.showingUserProfile = true;
         }
     }
 };
 
-},{}],101:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36127,7 +36536,7 @@ module.exports = {
     }
 };
 
-},{}],102:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 'use strict';
 
 window.braintreeCheckout = [];
@@ -36182,7 +36591,7 @@ module.exports = {
     }
 };
 
-},{}],103:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36210,7 +36619,9 @@ module.exports = {
             this.loadingCurrentDiscount = true;
 
             this.$http.get('/coupon/user/' + user.id).then(function (response) {
-                _this.currentDiscount = response.data;
+                if (response.status == 200) {
+                    _this.currentDiscount = response.data;
+                }
 
                 _this.loadingCurrentDiscount = false;
             });
@@ -36228,7 +36639,9 @@ module.exports = {
             this.loadingCurrentDiscount = true;
 
             this.$http.get('/coupon/' + Spark.teamString + '/' + team.id).then(function (response) {
-                _this2.currentDiscount = response.data;
+                if (response.status == 200) {
+                    _this2.currentDiscount = response.data;
+                }
 
                 _this2.loadingCurrentDiscount = false;
             });
@@ -36246,7 +36659,7 @@ module.exports = {
             if (discount.percent_off) {
                 return discount.percent_off + '%';
             } else {
-                return Vue.filter('currency')(this.calculateAmountOff(discount.amount_off), Spark.currencySymbol);
+                return Vue.filter('currency')(this.calculateAmountOff(discount.amount_off));
             }
         },
 
@@ -36279,7 +36692,7 @@ module.exports = {
     }
 };
 
-},{}],104:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 'use strict';
 
 /*
@@ -36424,7 +36837,7 @@ module.exports = {
     }
 };
 
-},{}],105:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -36481,7 +36894,7 @@ module.exports = {
                 this.showYearlyPlans();
             }
 
-            if (this.query.plan) {
+            if (this.query.plan && !this.selectPlanById(this.query.plan)) {
                 this.selectPlanByName(this.query.plan);
             } else if (this.query.invitation) {
                 this.selectFreePlan();
@@ -36508,16 +36921,34 @@ module.exports = {
 
 
         /**
-         * Select the plan with the given name.
+         * Select the plan with the given id.
          */
-        selectPlanByName: function selectPlanByName(name) {
+        selectPlanById: function selectPlanById(id) {
             var _this = this;
 
             _.each(this.plans, function (plan) {
-                if (plan.name == name) {
+                if (plan.id == id) {
                     _this.selectPlan(plan);
                 }
             });
+
+            return this.selectedPlan;
+        },
+
+
+        /**
+         * Select the plan with the given name.
+         */
+        selectPlanByName: function selectPlanByName(name) {
+            var _this2 = this;
+
+            _.each(this.plans, function (plan) {
+                if (plan.name == name) {
+                    _this2.selectPlan(plan);
+                }
+            });
+
+            return this.selectedPlan;
         },
 
 
@@ -36540,7 +36971,7 @@ module.exports = {
     }
 };
 
-},{}],106:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
 'use strict';
 
 /*
@@ -36578,8 +37009,8 @@ module.exports = {
             // update the user and team once the request is complete. This method gets used
             // for both updating subscriptions plus resuming any cancelled subscriptions.
             this.$http.put(this.urlForPlanUpdate, { "plan": plan.id }).then(function () {
-                _this.$dispatch('updateUser');
-                _this.$dispatch('updateTeam');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeam');
             }).catch(function (response) {
                 _this.planForm.errors.set(response.data);
             }).finally(function () {
@@ -36706,7 +37137,7 @@ module.exports = {
     }
 };
 
-},{}],107:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36797,13 +37228,12 @@ module.exports = {
          * Broadcast that a tab change happened.
          */
         broadcastTabChange: function broadcastTabChange(hash, parameters) {
-            this.$dispatch('sparkHashChanged', hash, parameters);
-            this.$broadcast('sparkHashChanged', hash, parameters);
+            Bus.$emit('sparkHashChanged', hash, parameters);
         }
     }
 };
 
-},{}],108:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36845,7 +37275,7 @@ module.exports = {
     }
 };
 
-},{}],109:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36856,7 +37286,7 @@ module.exports = {
          * Show the user's notifications.
          */
         showNotifications: function showNotifications() {
-            this.$dispatch('showNotifications');
+            Bus.$emit('showNotifications');
         },
 
 
@@ -36864,12 +37294,12 @@ module.exports = {
          * Show the customer support e-mail form.
          */
         showSupportForm: function showSupportForm() {
-            this.$dispatch('showSupportForm');
+            Bus.$emit('showSupportForm');
         }
     }
 };
 
-},{}],110:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36911,10 +37341,8 @@ module.exports = {
          * Update the last read announcements timestamp.
          */
         updateLastReadAnnouncementsTimestamp: function updateLastReadAnnouncementsTimestamp() {
-            var _this = this;
-
             this.$http.put('/user/last-read-announcements-at').then(function () {
-                _this.$dispatch('updateUser');
+                Bus.$emit('updateUser');
             });
         }
     },
@@ -36953,7 +37381,7 @@ module.exports = {
     }
 };
 
-},{}],111:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36971,20 +37399,23 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.getTokens();
         this.getAvailableAbilities();
     },
 
 
-    events: {
-        /**
-         * Broadcast that child components should update their tokens.
-         */
-        updateTokens: function updateTokens() {
-            this.getTokens();
-        }
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        var self = this;
+
+        this.$on('updateTokens', function () {
+            self.getTokens();
+        });
     },
+
 
     methods: {
         /**
@@ -37008,7 +37439,7 @@ module.exports = {
     }
 };
 
-},{}],112:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37029,6 +37460,12 @@ module.exports = {
         };
     },
 
+
+    computed: {
+        copyCommandSupported: function copyCommandSupported() {
+            return document.queryCommandSupported('copy');
+        }
+    },
 
     watch: {
         /**
@@ -37107,7 +37544,7 @@ module.exports = {
 
                 _this.resetForm();
 
-                _this.$dispatch('updateTokens');
+                _this.$parent.$emit('updateTokens');
             });
         },
 
@@ -37119,6 +37556,18 @@ module.exports = {
             this.showingToken = token;
 
             $('#modal-show-token').modal('show');
+        },
+
+
+        /**
+         * Select the token and copy to Clipboard.
+         */
+        selectToken: function selectToken() {
+            $('#api-token').select();
+
+            if (this.copyCommandSupported) {
+                document.execCommand("copy");
+            }
         },
 
 
@@ -37135,7 +37584,7 @@ module.exports = {
     }
 };
 
-},{}],113:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37189,7 +37638,7 @@ module.exports = {
             var _this = this;
 
             Spark.put('/settings/api/token/' + this.updatingToken.id, this.updateTokenForm).then(function (response) {
-                _this.$dispatch('updateTokens');
+                _this.$parent.$emit('updateTokens');
 
                 $('#modal-update-token').modal('hide');
             });
@@ -37235,7 +37684,7 @@ module.exports = {
             var _this2 = this;
 
             Spark.delete('/settings/api/token/' + this.deletingToken.id, this.deleteTokenForm).then(function () {
-                _this2.$dispatch('updateTokens');
+                _this2.$parent.$emit('updateTokens');
 
                 $('#modal-delete-token').modal('hide');
             });
@@ -37243,7 +37692,7 @@ module.exports = {
     }
 };
 
-},{}],114:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37262,7 +37711,7 @@ module.exports = {
 	/**
   * Prepare the component.
   */
-	ready: function ready() {
+	mounted: function mounted() {
 		this.getInvoices();
 	},
 
@@ -37292,7 +37741,7 @@ module.exports = {
 	}
 };
 
-},{}],115:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37308,7 +37757,7 @@ module.exports = {
     }
 };
 
-},{}],116:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37329,7 +37778,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.form.information = this.billable.extra_billing_information;
     },
 
@@ -37353,7 +37802,7 @@ module.exports = {
     }
 };
 
-},{}],117:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37376,23 +37825,26 @@ module.exports = {
 
 
     /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        var self = this;
+
+        this.$on('updateDiscount', function () {
+            self.getCurrentDiscountForBillable(self.billableType, self.billable);
+
+            return true;
+        });
+    },
+
+
+    /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.getCurrentDiscountForBillable(this.billableType, this.billable);
     },
 
-
-    events: {
-        /**
-         * Update the discount for the current entity.
-         */
-        updateDiscount: function updateDiscount() {
-            this.getCurrentDiscountForBillable(this.billableType, this.billable);
-
-            return true;
-        }
-    },
 
     methods: {
         /**
@@ -37427,7 +37879,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/discounts":103}],118:[function(require,module,exports){
+},{"./../mixins/discounts":105}],120:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37450,26 +37902,28 @@ module.exports = {
 
 
     /**
-     * Prepare the component.
+     * The component has been created by Vue.
      */
-    ready: function ready() {
-        this.getCurrentDiscountForBillable(this.billableType, this.billable);
+    created: function created() {
+        var self = this;
+
+        this.$on('updateDiscount', function () {
+            self.getCurrentDiscountForBillable(self.billableType, self.billable);
+
+            return true;
+        });
     },
 
 
-    events: {
-        /**
-         * Update the discount for the current user.
-         */
-        updateDiscount: function updateDiscount() {
-            this.getCurrentDiscountForBillable(this.billableType, this.billable);
-
-            return true;
-        }
+    /**
+     * Prepare the component.
+     */
+    mounted: function mounted() {
+        this.getCurrentDiscountForBillable(this.billableType, this.billable);
     }
 };
 
-},{"./../mixins/discounts":103}],119:[function(require,module,exports){
+},{"./../mixins/discounts":105}],121:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37497,7 +37951,7 @@ module.exports = {
             Spark.post(this.urlForRedemption, this.form).then(function () {
                 _this.form.coupon = '';
 
-                _this.$dispatch('updateDiscount');
+                _this.$parent.$emit('updateDiscount');
             });
         }
     },
@@ -37512,7 +37966,7 @@ module.exports = {
     }
 };
 
-},{}],120:[function(require,module,exports){
+},{}],122:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37539,7 +37993,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.braintree('braintree-payment-method-container', this.braintreeCallback);
     },
 
@@ -37552,8 +38006,8 @@ module.exports = {
             var _this = this;
 
             Spark.put(this.urlForUpdate, this.form).then(function () {
-                _this.$dispatch('updateUser');
-                _this.$dispatch('updateTeam');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeam');
 
                 _this.resetBraintree('braintree-payment-method-container', _this.braintreeCallback);
             });
@@ -37608,7 +38062,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/braintree":102}],121:[function(require,module,exports){
+},{"./../../mixins/braintree":104}],123:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37643,7 +38097,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         Stripe.setPublishableKey(Spark.stripeKey);
 
         this.initializeBillingAddress();
@@ -37720,8 +38174,8 @@ module.exports = {
             this.form.stripe_token = token;
 
             Spark.put(this.urlForUpdate, this.form).then(function () {
-                _this2.$dispatch('updateUser');
-                _this2.$dispatch('updateTeam');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeam');
 
                 _this2.cardForm.name = '';
                 _this2.cardForm.number = '';
@@ -37793,7 +38247,7 @@ module.exports = {
     }
 };
 
-},{}],122:[function(require,module,exports){
+},{}],124:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37812,7 +38266,7 @@ module.exports = {
     /**
      * Bootstrap the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.form.vat_id = this.billable.vat_id;
     },
 
@@ -37836,14 +38290,14 @@ module.exports = {
     }
 };
 
-},{}],123:[function(require,module,exports){
+},{}],125:[function(require,module,exports){
 'use strict';
 
 module.exports = {
     props: ['user']
 };
 
-},{}],124:[function(require,module,exports){
+},{}],126:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37865,7 +38319,7 @@ module.exports = {
     /**
      * Bootstrap the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.form.name = this.user.name;
         this.form.email = this.user.email;
     },
@@ -37876,16 +38330,14 @@ module.exports = {
          * Update the user's contact information.
          */
         update: function update() {
-            var _this = this;
-
             Spark.put('/settings/contact', this.form).then(function () {
-                _this.$dispatch('updateUser');
+                Bus.$emit('updateUser');
             });
         }
     }
 };
 
-},{}],125:[function(require,module,exports){
+},{}],127:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37926,7 +38378,7 @@ module.exports = {
                     'X-XSRF-TOKEN': Cookies.get('XSRF-TOKEN')
                 },
                 success: function success() {
-                    self.$dispatch('updateUser');
+                    Bus.$emit('updateUser');
 
                     self.form.finishProcessing();
                 },
@@ -37943,7 +38395,7 @@ module.exports = {
         gatherFormData: function gatherFormData() {
             var data = new FormData();
 
-            data.append('photo', this.$els.photo.files[0]);
+            data.append('photo', this.$refs.photo.files[0]);
 
             return data;
         }
@@ -37959,7 +38411,7 @@ module.exports = {
     }
 };
 
-},{}],126:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37975,19 +38427,21 @@ module.exports = {
     },
 
 
-    events: {
-        /**
-         * Display the received two-factor authentication code.
-         */
-        receivedTwoFactorResetCode: function receivedTwoFactorResetCode(code) {
-            this.twoFactorResetCode = code;
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        var self = this;
+
+        this.$on('receivedTwoFactorResetCode', function (code) {
+            self.twoFactorResetCode = code;
 
             $('#modal-show-two-factor-reset-code').modal('show');
-        }
+        });
     }
 };
 
-},{}],127:[function(require,module,exports){
+},{}],129:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38008,16 +38462,14 @@ module.exports = {
    * Disable two-factor authentication for the user.
    */
 		disable: function disable() {
-			var _this = this;
-
 			Spark.delete('/settings/two-factor-auth', this.form).then(function () {
-				_this.$dispatch('updateUser');
+				Bus.$emit('updateUser');
 			});
 		}
 	}
 };
 
-},{}],128:[function(require,module,exports){
+},{}],130:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38039,7 +38491,7 @@ module.exports = {
 	/**
   * Prepare the component.
   */
-	ready: function ready() {
+	mounted: function mounted() {
 		this.form.country_code = this.user.country_code;
 		this.form.phone = this.user.phone;
 	},
@@ -38053,15 +38505,15 @@ module.exports = {
 			var _this = this;
 
 			Spark.post('/settings/two-factor-auth', this.form).then(function (code) {
-				_this.$dispatch('receivedTwoFactorResetCode', code);
+				_this.$parent.$emit('receivedTwoFactorResetCode', code);
 
-				_this.$dispatch('updateUser');
+				Bus.$emit('updateUser');
 			});
 		}
 	}
 };
 
-},{}],129:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38089,7 +38541,7 @@ module.exports = {
     }
 };
 
-},{}],130:[function(require,module,exports){
+},{}],132:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38105,7 +38557,8 @@ module.exports = {
      */
     data: function data() {
         return {
-            billableType: 'user'
+            billableType: 'user',
+            team: null
         };
     },
 
@@ -38113,12 +38566,12 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.usePushStateForTabs('.spark-settings-tabs');
     }
 };
 
-},{"./../mixins/tab-state":107}],131:[function(require,module,exports){
+},{"./../mixins/tab-state":109}],133:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38142,19 +38595,16 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
+        var self = this;
+
         this.getPlans();
+
+        this.$on('showPlanDetails', function (plan) {
+            self.showPlanDetails(plan);
+        });
     },
 
-
-    events: {
-        /**
-         * Show the details for the given plan.
-         */
-        showPlanDetails: function showPlanDetails(plan) {
-            this.showPlanDetails(plan);
-        }
-    },
 
     methods: {
         /**
@@ -38170,7 +38620,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/plans":104,"./../mixins/subscriptions":106}],132:[function(require,module,exports){
+},{"./../mixins/plans":106,"./../mixins/subscriptions":108}],134:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38199,11 +38649,9 @@ module.exports = {
          * Cancel the current subscription.
          */
         cancel: function cancel() {
-            var _this = this;
-
             Spark.delete(this.urlForCancellation, this.form).then(function () {
-                _this.$dispatch('updateUser');
-                _this.$dispatch('updateTeam');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeam');
 
                 $('#modal-confirm-cancellation').modal('hide');
             });
@@ -38220,7 +38668,7 @@ module.exports = {
     }
 };
 
-},{}],133:[function(require,module,exports){
+},{}],135:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38234,7 +38682,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         if (this.onlyHasYearlyPlans) {
             this.showYearlyPlans();
         }
@@ -38248,7 +38696,7 @@ module.exports = {
          * We'll ask the parent subscription component to display it.
          */
         showPlanDetails: function showPlanDetails(plan) {
-            this.$dispatch('showPlanDetails', plan);
+            this.$parent.$emit('showPlanDetails', plan);
         },
 
 
@@ -38261,7 +38709,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/plans":104,"./../../mixins/subscriptions":106}],134:[function(require,module,exports){
+},{"./../../mixins/plans":106,"./../../mixins/subscriptions":108}],136:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38290,7 +38738,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         var _this = this;
 
         // If only yearly subscription plans are available, we will select that interval so that we
@@ -38327,11 +38775,9 @@ module.exports = {
          * Subscribe to the specified plan.
          */
         subscribe: function subscribe() {
-            var _this2 = this;
-
             Spark.post(this.urlForNewSubscription, this.form).then(function (response) {
-                _this2.$dispatch('updateUser');
-                _this2.$dispatch('updateTeam');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeam');
             });
         },
 
@@ -38342,7 +38788,7 @@ module.exports = {
          * We'll ask the parent subscription component to display it.
          */
         showPlanDetails: function showPlanDetails(plan) {
-            this.$dispatch('showPlanDetails', plan);
+            this.$parent.$emit('showPlanDetails', plan);
         }
     },
 
@@ -38356,7 +38802,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/braintree":102,"./../../mixins/plans":104,"./../../mixins/subscriptions":106}],135:[function(require,module,exports){
+},{"./../../mixins/braintree":104,"./../../mixins/plans":106,"./../../mixins/subscriptions":108}],137:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38415,14 +38861,11 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         Stripe.setPublishableKey(Spark.stripeKey);
 
         this.initializeBillingAddress();
 
-        // If only yearly subscription plans are available, we will select that interval so that we
-        // can show the plans. Then we'll select the first available paid plan from the list and
-        // start the form in a good default spot. The user may then select another plan later.
         if (this.onlyHasYearlyPaidPlans) {
             this.showYearlyPlans();
         }
@@ -38500,13 +38943,11 @@ module.exports = {
          * After obtaining the Stripe token, create subscription on the Spark server.
          */
         createSubscription: function createSubscription(token) {
-            var _this2 = this;
-
             this.form.stripe_token = token;
 
             Spark.post(this.urlForNewSubscription, this.form).then(function (response) {
-                _this2.$dispatch('updateUser');
-                _this2.$dispatch('updateTeam');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeam');
             });
         },
 
@@ -38517,7 +38958,7 @@ module.exports = {
          * We'll ask the parent subscription component to display it.
          */
         showPlanDetails: function showPlanDetails(plan) {
-            this.$dispatch('showPlanDetails', plan);
+            this.$parent.$emit('showPlanDetails', plan);
         }
     },
 
@@ -38557,7 +38998,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/plans":104,"./../../mixins/subscriptions":106,"./../../mixins/vat":108}],136:[function(require,module,exports){
+},{"./../../mixins/plans":106,"./../../mixins/subscriptions":108,"./../../mixins/vat":110}],138:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38581,7 +39022,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         var _this = this;
 
         this.selectActivePlanInterval();
@@ -38638,7 +39079,7 @@ module.exports = {
          * We'll ask the parent subscription component to display it.
          */
         showPlanDetails: function showPlanDetails(plan) {
-            this.$dispatch('showPlanDetails', plan);
+            this.$parent.$emit('showPlanDetails', plan);
         },
 
 
@@ -38651,14 +39092,14 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/plans":104,"./../../mixins/subscriptions":106}],137:[function(require,module,exports){
+},{"./../../mixins/plans":106,"./../../mixins/subscriptions":108}],139:[function(require,module,exports){
 'use strict';
 
 module.exports = {
     props: ['user', 'teams']
 };
 
-},{}],138:[function(require,module,exports){
+},{}],140:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38667,10 +39108,86 @@ module.exports = {
      */
     data: function data() {
         return {
+            plans: [],
+
             form: new SparkForm({
-                name: ''
+                name: '',
+                slug: ''
             })
         };
+    },
+
+
+    computed: {
+        /**
+         * Get the active subscription instance.
+         */
+        activeSubscription: function activeSubscription() {
+            if (!this.$parent.billable) {
+                return;
+            }
+
+            var subscription = _.find(this.$parent.billable.subscriptions, function (subscription) {
+                return subscription.name == 'default';
+            });
+
+            if (typeof subscription !== 'undefined') {
+                return subscription;
+            }
+        },
+
+
+        /**
+         * Get the active plan instance.
+         */
+        activePlan: function activePlan() {
+            var _this = this;
+
+            if (this.activeSubscription) {
+                return _.find(this.plans, function (plan) {
+                    return plan.id == _this.activeSubscription.provider_plan;
+                });
+            }
+        },
+
+
+        /**
+         * Check if there's a limit for the number of teams.
+         */
+        hasTeamLimit: function hasTeamLimit() {
+            if (!this.activePlan) {
+                return false;
+            }
+
+            return !!this.activePlan.attributes.teams;
+        },
+
+
+        /**
+         *
+         * Get the remaining teams in the active plan.
+         */
+        remainingTeams: function remainingTeams() {
+            return this.activePlan ? this.activePlan.attributes.teams - this.$parent.teams.length : 0;
+        },
+
+
+        /**
+         * Check if the user can create more teams.
+         */
+        canCreateMoreTeams: function canCreateMoreTeams() {
+            if (!this.hasTeamLimit) {
+                return true;
+            }
+            return this.remainingTeams > 0;
+        }
+    },
+
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        this.getPlans();
     },
 
 
@@ -38689,24 +39206,48 @@ module.exports = {
         }
     },
 
+    watch: {
+        /**
+         * Watch the team name for changes.
+         */
+        'form.name': function formName(val, oldVal) {
+            if (this.form.slug == '' || this.form.slug == oldVal.toLowerCase().replace(/[\s\W-]+/g, '-')) {
+                this.form.slug = val.toLowerCase().replace(/[\s\W-]+/g, '-');
+            }
+        }
+    },
+
     methods: {
         /**
          * Create a new team.
          */
         create: function create() {
-            var _this = this;
+            var _this2 = this;
 
             Spark.post('/settings/' + Spark.pluralTeamString, this.form).then(function () {
-                _this.form.name = '';
+                _this2.form.name = '';
+                _this2.form.slug = '';
 
-                _this.$dispatch('updateUser');
-                _this.$dispatch('updateTeams');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeams');
+            });
+        },
+
+
+        /**
+         * Get all the plans defined in the application.
+         */
+        getPlans: function getPlans() {
+            var _this3 = this;
+
+            this.$http.get('/spark/plans').then(function (response) {
+                _this3.plans = response.data;
             });
         }
     }
 };
 
-},{}],139:[function(require,module,exports){
+},{}],141:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38729,7 +39270,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         $('[data-toggle="tooltip"]').tooltip();
     },
 
@@ -38749,11 +39290,9 @@ module.exports = {
          * Leave the given team.
          */
         leaveTeam: function leaveTeam() {
-            var _this = this;
-
             Spark.delete(this.urlForLeaving, this.leaveTeamForm).then(function () {
-                _this.$dispatch('updateUser');
-                _this.$dispatch('updateTeams');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeams');
 
                 $('#modal-leave-team').modal('hide');
             });
@@ -38774,11 +39313,9 @@ module.exports = {
          * Delete the given team.
          */
         deleteTeam: function deleteTeam() {
-            var _this2 = this;
-
             Spark.delete('/settings/' + Spark.pluralTeamString + '/' + this.deletingTeam.id, this.deleteTeamForm).then(function () {
-                _this2.$dispatch('updateUser');
-                _this2.$dispatch('updateTeams');
+                Bus.$emit('updateUser');
+                Bus.$emit('updateTeams');
 
                 $('#modal-delete-team').modal('hide');
             });
@@ -38795,7 +39332,7 @@ module.exports = {
     }
 };
 
-},{}],140:[function(require,module,exports){
+},{}],142:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38807,7 +39344,7 @@ module.exports = {
          */
         cancel: function cancel(invitation) {
             this.$http.delete('/settings/invitations/' + invitation.id).then(function () {
-                this.$dispatch('updateInvitations');
+                this.$parent.$emit('updateInvitations');
             });
 
             this.invitations = _.reject(this.invitations, function (i) {
@@ -38817,7 +39354,7 @@ module.exports = {
     }
 };
 
-},{}],141:[function(require,module,exports){
+},{}],143:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38859,7 +39396,7 @@ module.exports = {
             var _this2 = this;
 
             this.$http.post('/settings/invitations/' + invitation.id + '/accept').then(function () {
-                _this2.$dispatch('updateTeams');
+                Bus.$emit('updateTeams');
 
                 _this2.getPendingInvitations();
             });
@@ -38893,7 +39430,7 @@ module.exports = {
     }
 };
 
-},{}],142:[function(require,module,exports){
+},{}],144:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38904,10 +39441,85 @@ module.exports = {
      */
     data: function data() {
         return {
+            plans: [],
+
             form: new SparkForm({
                 email: ''
             })
         };
+    },
+
+
+    computed: {
+        /**
+         * Get the active subscription instance.
+         */
+        activeSubscription: function activeSubscription() {
+            if (!this.$parent.billable) {
+                return;
+            }
+
+            var subscription = _.find(this.$parent.billable.subscriptions, function (subscription) {
+                return subscription.name == 'default';
+            });
+
+            if (typeof subscription !== 'undefined') {
+                return subscription;
+            }
+        },
+
+
+        /**
+         * Get the active plan instance.
+         */
+        activePlan: function activePlan() {
+            var _this = this;
+
+            if (this.activeSubscription) {
+                return _.find(this.plans, function (plan) {
+                    return plan.id == _this.activeSubscription.provider_plan;
+                });
+            }
+        },
+
+
+        /**
+         * Check if there's a limit for the number of team members.
+         */
+        hasTeamMembersLimit: function hasTeamMembersLimit() {
+            if (!this.activePlan) {
+                return false;
+            }
+
+            return !!this.activePlan.attributes.teamMembers;
+        },
+
+
+        /**
+         *
+         * Get the remaining team members in the active plan.
+         */
+        remainingTeamMembers: function remainingTeamMembers() {
+            return this.activePlan ? this.activePlan.attributes.teamMembers - this.$parent.team.users.length : 0;
+        },
+
+
+        /**
+         * Check if the user can invite more team members.
+         */
+        canInviteMoreTeamMembers: function canInviteMoreTeamMembers() {
+            if (!this.hasTeamMembersLimit) {
+                return true;
+            }
+            return this.remainingTeamMembers > 0;
+        }
+    },
+
+    /**
+     * The component has been created by Vue.
+     */
+    created: function created() {
+        this.getPlans();
     },
 
 
@@ -38916,18 +39528,30 @@ module.exports = {
          * Send a team invitation.
          */
         send: function send() {
-            var _this = this;
+            var _this2 = this;
 
             Spark.post('/settings/' + Spark.pluralTeamString + '/' + this.team.id + '/invitations', this.form).then(function () {
-                _this.form.email = '';
+                _this2.form.email = '';
 
-                _this.$dispatch('updateInvitations');
+                _this2.$parent.$emit('updateInvitations');
+            });
+        },
+
+
+        /**
+         * Get all the plans defined in the application.
+         */
+        getPlans: function getPlans() {
+            var _this3 = this;
+
+            this.$http.get('/spark/plans').then(function (response) {
+                _this3.plans = response.data;
             });
         }
     }
 };
 
-},{}],143:[function(require,module,exports){
+},{}],145:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38988,10 +39612,8 @@ module.exports = {
          * Update the team member.
          */
         update: function update() {
-            var _this2 = this;
-
             Spark.put(this.urlForUpdating, this.updateTeamMemberForm).then(function () {
-                _this2.$dispatch('updateTeam');
+                Bus.$emit('updateTeam');
 
                 $('#modal-update-team-member').modal('hide');
             });
@@ -39011,11 +39633,9 @@ module.exports = {
         /**
          * Delete the given team member.
          */
-        delete: function _delete() {
-            var _this3 = this;
-
+        deleteMember: function deleteMember() {
             Spark.delete(this.urlForDeleting, this.deleteTeamMemberForm).then(function () {
-                _this3.$dispatch('updateTeam');
+                Bus.$emit('updateTeam');
 
                 $('#modal-delete-member').modal('hide');
             });
@@ -39077,7 +39697,7 @@ module.exports = {
     }
 };
 
-},{}],144:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39097,18 +39717,15 @@ module.exports = {
      * The component has been created by Vue.
      */
     created: function created() {
+        var self = this;
+
         this.getInvitations();
+
+        this.$on('updateInvitations', function () {
+            self.getInvitations();
+        });
     },
 
-
-    events: {
-        /**
-         * Update the team's invitations.
-         */
-        updateInvitations: function updateInvitations() {
-            this.getInvitations();
-        }
-    },
 
     methods: {
         /**
@@ -39124,14 +39741,14 @@ module.exports = {
     }
 };
 
-},{}],145:[function(require,module,exports){
+},{}],147:[function(require,module,exports){
 'use strict';
 
 module.exports = {
     props: ['user', 'team']
 };
 
-},{}],146:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39157,26 +39774,23 @@ module.exports = {
      * The component has been created by Vue.
      */
     created: function created() {
+        var self = this;
+
         this.getTeam();
+
+        Bus.$on('updateTeam', function () {
+            self.getTeam();
+        });
     },
 
 
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.usePushStateForTabs('.spark-settings-tabs');
     },
 
-
-    events: {
-        /**
-         * Update the team being managed.
-         */
-        updateTeam: function updateTeam() {
-            this.getTeam();
-        }
-    },
 
     methods: {
         /**
@@ -39192,7 +39806,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/tab-state":107}],147:[function(require,module,exports){
+},{"./../../mixins/tab-state":109}],149:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39213,7 +39827,7 @@ module.exports = {
     /**
      * Prepare the component.
      */
-    ready: function ready() {
+    mounted: function mounted() {
         this.form.name = this.team.name;
     },
 
@@ -39223,17 +39837,15 @@ module.exports = {
          * Update the team name.
          */
         update: function update() {
-            var _this = this;
-
             Spark.put('/settings/' + Spark.pluralTeamString + '/' + this.team.id + '/name', this.form).then(function () {
-                _this.$dispatch('updateTeam');
-                _this.$dispatch('updateTeams');
+                Bus.$emit('updateTeam');
+                Bus.$emit('updateTeams');
             });
         }
     }
 };
 
-},{}],148:[function(require,module,exports){
+},{}],150:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39274,8 +39886,8 @@ module.exports = {
                     'X-XSRF-TOKEN': Cookies.get('XSRF-TOKEN')
                 },
                 success: function success() {
-                    self.$dispatch('updateTeam');
-                    self.$dispatch('updateTeams');
+                    Bus.$emit('updateTeam');
+                    Bus.$emit('updateTeams');
 
                     self.form.finishProcessing();
                 },
@@ -39292,7 +39904,7 @@ module.exports = {
         gatherFormData: function gatherFormData() {
             var data = new FormData();
 
-            data.append('photo', this.$els.photo.files[0]);
+            data.append('photo', this.$refs.photo.files[0]);
 
             return data;
         }
@@ -39316,7 +39928,7 @@ module.exports = {
     }
 };
 
-},{}],149:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 'use strict';
 
 /*
@@ -39367,14 +39979,14 @@ if ($('#spark-app').length > 0) {
     require('vue-bootstrap');
 }
 
-},{"bootstrap/dist/js/npm":3,"jquery":16,"js-cookie":17,"moment":18,"promise":20,"underscore":28,"urijs":31,"vue-bootstrap":151}],150:[function(require,module,exports){
+},{"bootstrap/dist/js/npm":3,"jquery":16,"js-cookie":17,"moment":18,"promise":20,"underscore":28,"urijs":31,"vue-bootstrap":153}],152:[function(require,module,exports){
 'use strict';
 
 /**
  * Export the root Spark application.
  */
 module.exports = {
-    el: 'body',
+    el: '#spark-app',
 
     /**
      * Holds the timestamp for the last time we updated the API token.
@@ -39403,6 +40015,8 @@ module.exports = {
      * The component has been created by Vue.
      */
     created: function created() {
+        var self = this;
+
         if (Spark.userId) {
             this.loadDataForAuthenticatedUser();
         }
@@ -39410,50 +40024,24 @@ module.exports = {
         if (Spark.userId && Spark.usesApi) {
             this.refreshApiTokenEveryFewMinutes();
         }
-    },
 
+        Bus.$on('updateUser', function () {
+            self.getUser();
+        });
 
-    /**
-     * Prepare the application.
-     */
-    ready: function ready() {
-        this.whenReady();
-    },
+        Bus.$on('updateTeams', function () {
+            self.getTeams();
+        });
 
-
-    events: {
-        /*
-         * Update the current user of the application.
-         */
-        updateUser: function updateUser() {
-            this.getUser();
-        },
-
-
-        /**
-         * Update the current team list.
-         */
-        updateTeams: function updateTeams() {
-            this.getTeams();
-        },
-
-
-        /**
-         * Show the application's notifications.
-         */
-        showNotifications: function showNotifications() {
+        Bus.$on('showNotifications', function () {
             $('#modal-notifications').modal('show');
 
-            this.markNotificationsAsRead();
-        },
+            self.markNotificationsAsRead();
+        });
 
-
-        /**
-         * Show the customer support e-mail form.
-         */
-        showSupportForm: function showSupportForm() {
-            if (this.user) {
-                this.supportForm.from = this.user.email;
+        Bus.$on('showSupportForm', function () {
+            if (self.user) {
+                self.supportForm.from = self.user.email;
             }
 
             $('#modal-support').modal('show');
@@ -39461,8 +40049,17 @@ module.exports = {
             setTimeout(function () {
                 $('#support-subject').focus();
             }, 500);
-        }
+        });
     },
+
+
+    /**
+     * Prepare the application.
+     */
+    mounted: function mounted() {
+        this.whenReady();
+    },
+
 
     methods: {
         /**
@@ -39650,7 +40247,7 @@ module.exports = {
     }
 };
 
-},{}],151:[function(require,module,exports){
+},{}],153:[function(require,module,exports){
 'use strict';
 
 /*
@@ -39660,11 +40257,11 @@ module.exports = {
  */
 if (window.Vue === undefined) {
   window.Vue = require('vue');
+
+  window.Bus = new Vue();
 }
 
 require('vue-resource');
-
-Vue.config.debug = true;
 
 /**
  * Load Vue HTTP Interceptors.
@@ -39686,6 +40283,6 @@ require('./filters');
  */
 require('./forms/bootstrap');
 
-},{"./filters":89,"./forms/bootstrap":90,"./interceptors":94,"./mixin":101,"vue":34,"vue-resource":33}]},{},[35]);
+},{"./filters":91,"./forms/bootstrap":92,"./interceptors":96,"./mixin":103,"vue":35,"vue-resource":34}]},{},[36]);
 
 //# sourceMappingURL=app.js.map

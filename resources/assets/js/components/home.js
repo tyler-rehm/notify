@@ -5,3 +5,5 @@ Vue.component('home', {
         //
     }
 });
+
+Vue.component('example', require('./example.vue'));
