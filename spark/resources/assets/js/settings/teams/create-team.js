@@ -7,7 +7,8 @@ module.exports = {
             plans: [],
 
             form: new SparkForm({
-                name: ''
+                name: '',
+                slug: ''
             })
         };
     },
@@ -104,6 +105,20 @@ module.exports = {
     },
 
 
+    watch: {
+        /**
+         * Watch the team name for changes.
+         */
+        'form.name': function (val, oldVal) {
+            if (this.form.slug == '' ||
+                this.form.slug == oldVal.toLowerCase().replace(/[\s\W-]+/g, '-')
+            ) {
+                this.form.slug = val.toLowerCase().replace(/[\s\W-]+/g, '-');
+            }
+        }
+    },
+
+
     methods: {
         /**
          * Create a new team.
@@ -112,9 +127,10 @@ module.exports = {
             Spark.post('/settings/'+Spark.pluralTeamString, this.form)
                 .then(() => {
                     this.form.name = '';
+                    this.form.slug = '';
 
-                    this.$dispatch('updateUser');
-                    this.$dispatch('updateTeams');
+                    Bus.$emit('updateUser');
+                    Bus.$emit('updateTeams');
                 });
         },
 
