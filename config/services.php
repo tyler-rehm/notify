@@ -35,4 +35,9 @@ return [
         'secret' => env('STRIPE_SECRET'),
     ],
 
+    'campaign_monitor' => [
+        'key' => env('CAMPAIGN_MONITOR_API')
+    ]
+
+
 ];

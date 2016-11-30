@@ -11,6 +11,27 @@
 |
 */
 
+use App\Emails\AppointmentEmail;
+
 Route::get('/', 'WelcomeController@show');
 
 Route::get('/home', 'HomeController@show');
+
+Route::post('/sms/update/{api_key}', 'MessagesController@update_sms');
+Route::post('/sms/incoming/{api_key}', 'MessagesController@incoming_sms');
+Route::post('/call/update/{api_key}', 'MessagesController@update_call');
+Route::post('/call/incoming/{api_key}', 'MessagesController@incoming_response');
+
+Route::group(['middleware' => 'auth'], function () {
+    Route::get('/messages', 'MessagesController@index');
+});
+
+Route::get('test', function() {
+    $user = ['email' => 'tyler@hackrforce.com', 'name' => 'Tyler'];
+    $message = ['date' => '11/26', 'time' => '12:00 PM', 'guid' => str_random(25), 'message_id' => rand(0,1000)];
+    $result = (new AppointmentEmail)->withData($message)->sendTo($user);
+    dd($result);
+});
+
+Route::get('email/verify/{email}/{token}', 'UsersController@email_verify');
+Route::get('appointment/{guid}/update/{status}/{method}', 'MessagesController@update_status');

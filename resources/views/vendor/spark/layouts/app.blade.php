@@ -35,6 +35,8 @@
             @include('spark::nav.guest')
         @endif
 
+        @include('flash::message')
+
         <!-- Main Content -->
         @yield('content')
 
@@ -49,5 +51,9 @@
     <!-- JavaScript -->
     <script src="/js/app.js"></script>
     <script src="/js/sweetalert.min.js"></script>
+    <script>
+        $('#flash-overlay-modal').modal();
+    </script>
+
 </body>
 </html>

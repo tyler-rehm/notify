@@ -17,7 +17,7 @@
                 </div>
             </div>
         </div>
-        <example></example>
+        <message_add></message_add>
     </div>
 </home>
 @endsection

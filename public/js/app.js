@@ -34461,7 +34461,7 @@ var app = new Vue({
   mixins: [require('spark')]
 });
 
-},{"./components/bootstrap":37,"spark":152,"spark-bootstrap":151}],37:[function(require,module,exports){
+},{"./components/bootstrap":37,"spark":153,"spark-bootstrap":152}],37:[function(require,module,exports){
 'use strict';
 
 /*
@@ -34478,7 +34478,7 @@ require('./../spark-components/bootstrap');
 
 require('./home');
 
-},{"./../spark-components/bootstrap":42,"./home":39}],38:[function(require,module,exports){
+},{"./../spark-components/bootstrap":43,"./home":39}],38:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -34513,8 +34513,52 @@ Vue.component('home', {
 });
 
 Vue.component('example', require('./example.vue'));
+Vue.component('message_add', require('./messages/add.vue'));
 
-},{"./example.vue":38}],40:[function(require,module,exports){
+},{"./example.vue":38,"./messages/add.vue":40}],40:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.default = {
+    data: function data() {
+        return {
+            form: new SparkForm({
+                name: '',
+                phone_number: '',
+                email: '',
+                message_type_id: '',
+                message: '',
+                date: '',
+                time: ''
+            })
+        };
+    },
+
+    methods: {
+        add: function add() {
+            Spark.post('/api/messages/add', this.form).then(function (response) {
+                console.log(response);
+            });
+        }
+    },
+    computed: {},
+    ready: function ready() {}
+};
+if (module.exports.__esModule) module.exports = module.exports.default
+;(typeof module.exports === "function"? module.exports.options: module.exports).template = "\n<div class=\"row\">\n    <div class=\"col-md-8 col-md-offset-2\">\n        <div class=\"panel panel-default\">\n            <div class=\"panel-heading\">Add New Message</div>\n\n            <div class=\"panel-body\">\n                <form class=\"form-horizontal\" role=\"form\">\n\n                    <!-- Name -->\n                    <div class=\"form-group\" :class=\"{'has-error': form.errors.has('name')}\">\n                        <label class=\"col-md-4 control-label\">Name</label>\n\n                        <div class=\"col-md-6\">\n                            <input type=\"text\" class=\"form-control\" name=\"name\" v-model=\"form.name\" autofocus=\"\">\n\n                            <span class=\"help-block\" v-show=\"form.errors.has('name')\">\n                                {{ form.errors.get('name') }}\n                            </span>\n                        </div>\n                    </div>\n\n                    <!-- Phone Number -->\n                    <div class=\"form-group\" :class=\"{'has-error': form.errors.has('phone_number')}\">\n                        <label class=\"col-md-4 control-label\">Phone Number</label>\n\n                        <div class=\"col-md-6\">\n                            <input type=\"text\" class=\"form-control\" name=\"phone_number\" v-model=\"form.phone_number\">\n\n                            <span class=\"help-block\" v-show=\"form.errors.has('phone_number')\">\n                                {{ form.errors.get('phone_number') }}\n                            </span>\n                        </div>\n                    </div>\n\n                    <!-- Email Address -->\n                    <div class=\"form-group\" :class=\"{'has-error': form.errors.has('email')}\">\n                        <label class=\"col-md-4 control-label\">Email</label>\n\n                        <div class=\"col-md-6\">\n                            <input type=\"text\" class=\"form-control\" name=\"email\" v-model=\"form.email\">\n\n                            <span class=\"help-block\" v-show=\"form.errors.has('email')\">\n                                {{ form.errors.get('email') }}\n                            </span>\n                        </div>\n                    </div>\n\n                    <!-- Type -->\n                    <div class=\"form-group\" :class=\"{'has-error': form.errors.has('message_type_id')}\">\n                        <label class=\"col-md-4 control-label\">Type</label>\n\n                        <div class=\"col-md-6\">\n                            <select class=\"form-control\" name=\"message_type_id\" v-model=\"form.message_type_id\">\n                                <option value=\"1\" selected=\"\">Broadcast</option>\n                                <option value=\"2\">Appointment</option>\n                            </select>\n\n                            <span class=\"help-block\" v-show=\"form.errors.has('message_type_id')\">\n                                {{ form.errors.get('message_type_id') }}\n                            </span>\n                        </div>\n                    </div>\n\n                    <div v-if=\"form.message_type_id == 2\">\n                        <!-- Date -->\n                        <div class=\"form-group\" :class=\"{'has-error': form.errors.has('date')}\">\n                            <label class=\"col-md-4 control-label\">Date</label>\n\n                            <div class=\"col-md-6\">\n                                <input type=\"text\" class=\"form-control\" name=\"date\" v-model=\"form.date\">\n\n                                <span class=\"help-block\" v-show=\"form.errors.has('date')\">\n                                    {{ form.errors.get('date') }}\n                                </span>\n                            </div>\n                        </div>\n\n                        <!-- Time -->\n                        <div class=\"form-group\" :class=\"{'has-error': form.errors.has('time')}\">\n                            <label class=\"col-md-4 control-label\">Time</label>\n\n                            <div class=\"col-md-6\">\n                                <input type=\"text\" class=\"form-control\" name=\"time\" v-model=\"form.time\">\n\n                                <span class=\"help-block\" v-show=\"form.errors.has('time')\">\n                                    {{ form.errors.get('time') }}\n                                </span>\n                            </div>\n                        </div>\n                    </div>\n\n                    <!-- Email Address -->\n                    <div class=\"form-group\" :class=\"{'has-error': form.errors.has('message')}\">\n                        <label class=\"col-md-4 control-label\">Message</label>\n\n                        <div class=\"col-md-6\">\n                            <textarea class=\"form-control\" name=\"message\" v-model=\"form.message\"></textarea>\n\n                            <span class=\"help-block\" v-show=\"form.errors.has('message')\">\n                                {{ form.errors.get('message') }}\n                            </span>\n                        </div>\n                    </div>\n\n                    <!-- Update Button -->\n                    <div class=\"form-group\">\n                        <div class=\"col-md-offset-4 col-md-6\">\n                            <button type=\"submit\" class=\"btn btn-primary\" @click=\"add\" :disabled=\"form.busy\">\n                                Save\n                            </button>\n                        </div>\n                    </div>\n                </form>\n\n                <div class=\"alert alert-success\" v-if=\"form.successful\">\n                    Your contact information has been updated!\n                </div>\n            </div>\n        </div>\n    </div>\n</div>\n"
+if (module.hot) {(function () {  module.hot.accept()
+  var hotAPI = require("vue-hot-reload-api")
+  hotAPI.install(require("vue"), true)
+  if (!hotAPI.compatible) return
+  if (!module.hot.data) {
+    hotAPI.createRecord("_v-6d793957", module.exports)
+  } else {
+    hotAPI.update("_v-6d793957", module.exports, (typeof module.exports === "function" ? module.exports.options : module.exports).template)
+  }
+})()}
+},{"vue":35,"vue-hot-reload-api":33}],41:[function(require,module,exports){
 'use strict';
 
 var base = require('auth/register-braintree');
@@ -34523,7 +34567,7 @@ Vue.component('spark-register-braintree', {
     mixins: [base]
 });
 
-},{"auth/register-braintree":89}],41:[function(require,module,exports){
+},{"auth/register-braintree":90}],42:[function(require,module,exports){
 'use strict';
 
 var base = require('auth/register-stripe');
@@ -34532,7 +34576,7 @@ Vue.component('spark-register-stripe', {
     mixins: [base]
 });
 
-},{"auth/register-stripe":90}],42:[function(require,module,exports){
+},{"auth/register-stripe":91}],43:[function(require,module,exports){
 'use strict';
 
 /**
@@ -34627,7 +34671,7 @@ require('./kiosk/users');
 require('./kiosk/profile');
 require('./kiosk/add-discount');
 
-},{"./auth/register-braintree":40,"./auth/register-stripe":41,"./kiosk/add-discount":43,"./kiosk/announcements":44,"./kiosk/kiosk":45,"./kiosk/metrics":46,"./kiosk/profile":47,"./kiosk/users":48,"./navbar/navbar":49,"./notifications/notifications":50,"./settings/api":51,"./settings/api/create-token":52,"./settings/api/tokens":53,"./settings/invoices":54,"./settings/invoices/invoice-list":55,"./settings/invoices/update-extra-billing-information":56,"./settings/payment-method-braintree":57,"./settings/payment-method-stripe":58,"./settings/payment-method/redeem-coupon":59,"./settings/payment-method/update-payment-method-braintree":60,"./settings/payment-method/update-payment-method-stripe":61,"./settings/payment-method/update-vat-id":62,"./settings/profile":63,"./settings/profile/update-contact-information":64,"./settings/profile/update-profile-photo":65,"./settings/security":66,"./settings/security/disable-two-factor-auth":67,"./settings/security/enable-two-factor-auth":68,"./settings/security/update-password":69,"./settings/settings":70,"./settings/subscription":71,"./settings/subscription/cancel-subscription":72,"./settings/subscription/resume-subscription":73,"./settings/subscription/subscribe-braintree":74,"./settings/subscription/subscribe-stripe":75,"./settings/subscription/update-subscription":76,"./settings/teams":77,"./settings/teams/create-team":78,"./settings/teams/current-teams":79,"./settings/teams/mailed-invitations":80,"./settings/teams/pending-invitations":81,"./settings/teams/send-invitation":82,"./settings/teams/team-members":83,"./settings/teams/team-membership":84,"./settings/teams/team-profile":85,"./settings/teams/team-settings":86,"./settings/teams/update-team-name":87,"./settings/teams/update-team-photo":88}],43:[function(require,module,exports){
+},{"./auth/register-braintree":41,"./auth/register-stripe":42,"./kiosk/add-discount":44,"./kiosk/announcements":45,"./kiosk/kiosk":46,"./kiosk/metrics":47,"./kiosk/profile":48,"./kiosk/users":49,"./navbar/navbar":50,"./notifications/notifications":51,"./settings/api":52,"./settings/api/create-token":53,"./settings/api/tokens":54,"./settings/invoices":55,"./settings/invoices/invoice-list":56,"./settings/invoices/update-extra-billing-information":57,"./settings/payment-method-braintree":58,"./settings/payment-method-stripe":59,"./settings/payment-method/redeem-coupon":60,"./settings/payment-method/update-payment-method-braintree":61,"./settings/payment-method/update-payment-method-stripe":62,"./settings/payment-method/update-vat-id":63,"./settings/profile":64,"./settings/profile/update-contact-information":65,"./settings/profile/update-profile-photo":66,"./settings/security":67,"./settings/security/disable-two-factor-auth":68,"./settings/security/enable-two-factor-auth":69,"./settings/security/update-password":70,"./settings/settings":71,"./settings/subscription":72,"./settings/subscription/cancel-subscription":73,"./settings/subscription/resume-subscription":74,"./settings/subscription/subscribe-braintree":75,"./settings/subscription/subscribe-stripe":76,"./settings/subscription/update-subscription":77,"./settings/teams":78,"./settings/teams/create-team":79,"./settings/teams/current-teams":80,"./settings/teams/mailed-invitations":81,"./settings/teams/pending-invitations":82,"./settings/teams/send-invitation":83,"./settings/teams/team-members":84,"./settings/teams/team-membership":85,"./settings/teams/team-profile":86,"./settings/teams/team-settings":87,"./settings/teams/update-team-name":88,"./settings/teams/update-team-photo":89}],44:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/add-discount');
@@ -34636,7 +34680,7 @@ Vue.component('spark-kiosk-add-discount', {
     mixins: [base]
 });
 
-},{"kiosk/add-discount":97}],44:[function(require,module,exports){
+},{"kiosk/add-discount":98}],45:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/announcements');
@@ -34645,7 +34689,7 @@ Vue.component('spark-kiosk-announcements', {
     mixins: [base]
 });
 
-},{"kiosk/announcements":98}],45:[function(require,module,exports){
+},{"kiosk/announcements":99}],46:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/kiosk');
@@ -34654,7 +34698,7 @@ Vue.component('spark-kiosk', {
     mixins: [base]
 });
 
-},{"kiosk/kiosk":99}],46:[function(require,module,exports){
+},{"kiosk/kiosk":100}],47:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/metrics');
@@ -34663,7 +34707,7 @@ Vue.component('spark-kiosk-metrics', {
     mixins: [base]
 });
 
-},{"kiosk/metrics":100}],47:[function(require,module,exports){
+},{"kiosk/metrics":101}],48:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/profile');
@@ -34672,7 +34716,7 @@ Vue.component('spark-kiosk-profile', {
     mixins: [base]
 });
 
-},{"kiosk/profile":101}],48:[function(require,module,exports){
+},{"kiosk/profile":102}],49:[function(require,module,exports){
 'use strict';
 
 var base = require('kiosk/users');
@@ -34681,7 +34725,7 @@ Vue.component('spark-kiosk-users', {
     mixins: [base]
 });
 
-},{"kiosk/users":102}],49:[function(require,module,exports){
+},{"kiosk/users":103}],50:[function(require,module,exports){
 'use strict';
 
 var base = require('navbar/navbar');
@@ -34690,7 +34734,7 @@ Vue.component('spark-navbar', {
     mixins: [base]
 });
 
-},{"navbar/navbar":111}],50:[function(require,module,exports){
+},{"navbar/navbar":112}],51:[function(require,module,exports){
 'use strict';
 
 var base = require('notifications/notifications');
@@ -34699,7 +34743,7 @@ Vue.component('spark-notifications', {
     mixins: [base]
 });
 
-},{"notifications/notifications":112}],51:[function(require,module,exports){
+},{"notifications/notifications":113}],52:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/api');
@@ -34708,7 +34752,7 @@ Vue.component('spark-api', {
     mixins: [base]
 });
 
-},{"settings/api":113}],52:[function(require,module,exports){
+},{"settings/api":114}],53:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/api/create-token');
@@ -34717,7 +34761,7 @@ Vue.component('spark-create-token', {
     mixins: [base]
 });
 
-},{"settings/api/create-token":114}],53:[function(require,module,exports){
+},{"settings/api/create-token":115}],54:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/api/tokens');
@@ -34726,7 +34770,7 @@ Vue.component('spark-tokens', {
     mixins: [base]
 });
 
-},{"settings/api/tokens":115}],54:[function(require,module,exports){
+},{"settings/api/tokens":116}],55:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/invoices');
@@ -34735,7 +34779,7 @@ Vue.component('spark-invoices', {
     mixins: [base]
 });
 
-},{"settings/invoices":116}],55:[function(require,module,exports){
+},{"settings/invoices":117}],56:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/invoices/invoice-list');
@@ -34744,7 +34788,7 @@ Vue.component('spark-invoice-list', {
     mixins: [base]
 });
 
-},{"settings/invoices/invoice-list":117}],56:[function(require,module,exports){
+},{"settings/invoices/invoice-list":118}],57:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/invoices/update-extra-billing-information');
@@ -34753,7 +34797,7 @@ Vue.component('spark-update-extra-billing-information', {
     mixins: [base]
 });
 
-},{"settings/invoices/update-extra-billing-information":118}],57:[function(require,module,exports){
+},{"settings/invoices/update-extra-billing-information":119}],58:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method-braintree');
@@ -34762,7 +34806,7 @@ Vue.component('spark-payment-method-braintree', {
     mixins: [base]
 });
 
-},{"settings/payment-method-braintree":119}],58:[function(require,module,exports){
+},{"settings/payment-method-braintree":120}],59:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method-stripe');
@@ -34771,7 +34815,7 @@ Vue.component('spark-payment-method-stripe', {
     mixins: [base]
 });
 
-},{"settings/payment-method-stripe":120}],59:[function(require,module,exports){
+},{"settings/payment-method-stripe":121}],60:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/redeem-coupon');
@@ -34780,7 +34824,7 @@ Vue.component('spark-redeem-coupon', {
     mixins: [base]
 });
 
-},{"settings/payment-method/redeem-coupon":121}],60:[function(require,module,exports){
+},{"settings/payment-method/redeem-coupon":122}],61:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/update-payment-method-braintree');
@@ -34789,7 +34833,7 @@ Vue.component('spark-update-payment-method-braintree', {
     mixins: [base]
 });
 
-},{"settings/payment-method/update-payment-method-braintree":122}],61:[function(require,module,exports){
+},{"settings/payment-method/update-payment-method-braintree":123}],62:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/update-payment-method-stripe');
@@ -34798,7 +34842,7 @@ Vue.component('spark-update-payment-method-stripe', {
     mixins: [base]
 });
 
-},{"settings/payment-method/update-payment-method-stripe":123}],62:[function(require,module,exports){
+},{"settings/payment-method/update-payment-method-stripe":124}],63:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/payment-method/update-vat-id');
@@ -34807,7 +34851,7 @@ Vue.component('spark-update-vat-id', {
     mixins: [base]
 });
 
-},{"settings/payment-method/update-vat-id":124}],63:[function(require,module,exports){
+},{"settings/payment-method/update-vat-id":125}],64:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/profile');
@@ -34816,7 +34860,7 @@ Vue.component('spark-profile', {
     mixins: [base]
 });
 
-},{"settings/profile":125}],64:[function(require,module,exports){
+},{"settings/profile":126}],65:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/profile/update-contact-information');
@@ -34825,7 +34869,7 @@ Vue.component('spark-update-contact-information', {
     mixins: [base]
 });
 
-},{"settings/profile/update-contact-information":126}],65:[function(require,module,exports){
+},{"settings/profile/update-contact-information":127}],66:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/profile/update-profile-photo');
@@ -34834,7 +34878,7 @@ Vue.component('spark-update-profile-photo', {
     mixins: [base]
 });
 
-},{"settings/profile/update-profile-photo":127}],66:[function(require,module,exports){
+},{"settings/profile/update-profile-photo":128}],67:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security');
@@ -34843,7 +34887,7 @@ Vue.component('spark-security', {
     mixins: [base]
 });
 
-},{"settings/security":128}],67:[function(require,module,exports){
+},{"settings/security":129}],68:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security/disable-two-factor-auth');
@@ -34852,7 +34896,7 @@ Vue.component('spark-disable-two-factor-auth', {
     mixins: [base]
 });
 
-},{"settings/security/disable-two-factor-auth":129}],68:[function(require,module,exports){
+},{"settings/security/disable-two-factor-auth":130}],69:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security/enable-two-factor-auth');
@@ -34861,7 +34905,7 @@ Vue.component('spark-enable-two-factor-auth', {
     mixins: [base]
 });
 
-},{"settings/security/enable-two-factor-auth":130}],69:[function(require,module,exports){
+},{"settings/security/enable-two-factor-auth":131}],70:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/security/update-password');
@@ -34870,7 +34914,7 @@ Vue.component('spark-update-password', {
     mixins: [base]
 });
 
-},{"settings/security/update-password":131}],70:[function(require,module,exports){
+},{"settings/security/update-password":132}],71:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/settings');
@@ -34879,7 +34923,7 @@ Vue.component('spark-settings', {
     mixins: [base]
 });
 
-},{"settings/settings":132}],71:[function(require,module,exports){
+},{"settings/settings":133}],72:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription');
@@ -34888,7 +34932,7 @@ Vue.component('spark-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription":133}],72:[function(require,module,exports){
+},{"settings/subscription":134}],73:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/cancel-subscription');
@@ -34897,7 +34941,7 @@ Vue.component('spark-cancel-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription/cancel-subscription":134}],73:[function(require,module,exports){
+},{"settings/subscription/cancel-subscription":135}],74:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/resume-subscription');
@@ -34906,7 +34950,7 @@ Vue.component('spark-resume-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription/resume-subscription":135}],74:[function(require,module,exports){
+},{"settings/subscription/resume-subscription":136}],75:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/subscribe-braintree');
@@ -34915,7 +34959,7 @@ Vue.component('spark-subscribe-braintree', {
     mixins: [base]
 });
 
-},{"settings/subscription/subscribe-braintree":136}],75:[function(require,module,exports){
+},{"settings/subscription/subscribe-braintree":137}],76:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/subscribe-stripe');
@@ -34924,7 +34968,7 @@ Vue.component('spark-subscribe-stripe', {
     mixins: [base]
 });
 
-},{"settings/subscription/subscribe-stripe":137}],76:[function(require,module,exports){
+},{"settings/subscription/subscribe-stripe":138}],77:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/subscription/update-subscription');
@@ -34933,7 +34977,7 @@ Vue.component('spark-update-subscription', {
     mixins: [base]
 });
 
-},{"settings/subscription/update-subscription":138}],77:[function(require,module,exports){
+},{"settings/subscription/update-subscription":139}],78:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams');
@@ -34942,7 +34986,7 @@ Vue.component('spark-teams', {
     mixins: [base]
 });
 
-},{"settings/teams":139}],78:[function(require,module,exports){
+},{"settings/teams":140}],79:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/create-team');
@@ -34951,7 +34995,7 @@ Vue.component('spark-create-team', {
     mixins: [base]
 });
 
-},{"settings/teams/create-team":140}],79:[function(require,module,exports){
+},{"settings/teams/create-team":141}],80:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/current-teams');
@@ -34960,7 +35004,7 @@ Vue.component('spark-current-teams', {
     mixins: [base]
 });
 
-},{"settings/teams/current-teams":141}],80:[function(require,module,exports){
+},{"settings/teams/current-teams":142}],81:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/mailed-invitations');
@@ -34969,7 +35013,7 @@ Vue.component('spark-mailed-invitations', {
     mixins: [base]
 });
 
-},{"settings/teams/mailed-invitations":142}],81:[function(require,module,exports){
+},{"settings/teams/mailed-invitations":143}],82:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/pending-invitations');
@@ -34978,7 +35022,7 @@ Vue.component('spark-pending-invitations', {
     mixins: [base]
 });
 
-},{"settings/teams/pending-invitations":143}],82:[function(require,module,exports){
+},{"settings/teams/pending-invitations":144}],83:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/send-invitation');
@@ -34987,7 +35031,7 @@ Vue.component('spark-send-invitation', {
     mixins: [base]
 });
 
-},{"settings/teams/send-invitation":144}],83:[function(require,module,exports){
+},{"settings/teams/send-invitation":145}],84:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-members');
@@ -34996,7 +35040,7 @@ Vue.component('spark-team-members', {
     mixins: [base]
 });
 
-},{"settings/teams/team-members":145}],84:[function(require,module,exports){
+},{"settings/teams/team-members":146}],85:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-membership');
@@ -35005,7 +35049,7 @@ Vue.component('spark-team-membership', {
     mixins: [base]
 });
 
-},{"settings/teams/team-membership":146}],85:[function(require,module,exports){
+},{"settings/teams/team-membership":147}],86:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-profile');
@@ -35014,7 +35058,7 @@ Vue.component('spark-team-profile', {
     mixins: [base]
 });
 
-},{"settings/teams/team-profile":147}],86:[function(require,module,exports){
+},{"settings/teams/team-profile":148}],87:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/team-settings');
@@ -35023,7 +35067,7 @@ Vue.component('spark-team-settings', {
     mixins: [base]
 });
 
-},{"settings/teams/team-settings":148}],87:[function(require,module,exports){
+},{"settings/teams/team-settings":149}],88:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/update-team-name');
@@ -35032,7 +35076,7 @@ Vue.component('spark-update-team-name', {
     mixins: [base]
 });
 
-},{"settings/teams/update-team-name":149}],88:[function(require,module,exports){
+},{"settings/teams/update-team-name":150}],89:[function(require,module,exports){
 'use strict';
 
 var base = require('settings/teams/update-team-photo');
@@ -35041,7 +35085,7 @@ Vue.component('spark-update-team-photo', {
     mixins: [base]
 });
 
-},{"settings/teams/update-team-photo":150}],89:[function(require,module,exports){
+},{"settings/teams/update-team-photo":151}],90:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35172,7 +35216,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/braintree":104,"./../mixins/plans":106,"./../mixins/register":107}],90:[function(require,module,exports){
+},{"./../mixins/braintree":105,"./../mixins/plans":107,"./../mixins/register":108}],91:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35409,7 +35453,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/plans":106,"./../mixins/register":107,"./../mixins/vat":110}],91:[function(require,module,exports){
+},{"./../mixins/plans":107,"./../mixins/register":108,"./../mixins/vat":111}],92:[function(require,module,exports){
 'use strict';
 
 /**
@@ -35473,7 +35517,7 @@ Vue.filter('currency', function (value) {
     return sign + window.Spark.currencySymbol + head + _int.slice(i).replace(/(\d{3})(?=\d)/g, '$1,') + _float;
 });
 
-},{}],92:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 'use strict';
 
 /**
@@ -35500,7 +35544,7 @@ require('./errors');
  */
 $.extend(Spark, require('./http'));
 
-},{"./errors":93,"./form":94,"./http":95}],93:[function(require,module,exports){
+},{"./errors":94,"./form":95,"./http":96}],94:[function(require,module,exports){
 'use strict';
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
@@ -35571,7 +35615,7 @@ window.SparkFormErrors = function () {
     };
 };
 
-},{}],94:[function(require,module,exports){
+},{}],95:[function(require,module,exports){
 "use strict";
 
 /**
@@ -35625,7 +35669,7 @@ window.SparkForm = function (data) {
   };
 };
 
-},{}],95:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35684,7 +35728,7 @@ module.exports = {
     }
 };
 
-},{}],96:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 'use strict';
 
 module.exports = function (request, next) {
@@ -35714,7 +35758,7 @@ module.exports = function (request, next) {
     });
 };
 
-},{}],97:[function(require,module,exports){
+},{}],98:[function(require,module,exports){
 'use strict';
 
 function kioskAddDiscountForm() {
@@ -35781,7 +35825,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/discounts":105}],98:[function(require,module,exports){
+},{"./../mixins/discounts":106}],99:[function(require,module,exports){
 'use strict';
 
 var announcementsCreateForm = function announcementsCreateForm() {
@@ -35905,7 +35949,7 @@ module.exports = {
     }
 };
 
-},{}],99:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -35940,7 +35984,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/tab-state":109}],100:[function(require,module,exports){
+},{"./../mixins/tab-state":110}],101:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36225,7 +36269,7 @@ module.exports = {
     }
 };
 
-},{}],101:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36376,7 +36420,7 @@ module.exports = {
     }
 };
 
-},{}],102:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36502,7 +36546,7 @@ module.exports = {
     }
 };
 
-},{}],103:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36536,7 +36580,7 @@ module.exports = {
     }
 };
 
-},{}],104:[function(require,module,exports){
+},{}],105:[function(require,module,exports){
 'use strict';
 
 window.braintreeCheckout = [];
@@ -36591,7 +36635,7 @@ module.exports = {
     }
 };
 
-},{}],105:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -36692,7 +36736,7 @@ module.exports = {
     }
 };
 
-},{}],106:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 'use strict';
 
 /*
@@ -36837,7 +36881,7 @@ module.exports = {
     }
 };
 
-},{}],107:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -36971,7 +37015,7 @@ module.exports = {
     }
 };
 
-},{}],108:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 'use strict';
 
 /*
@@ -37137,7 +37181,7 @@ module.exports = {
     }
 };
 
-},{}],109:[function(require,module,exports){
+},{}],110:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37233,7 +37277,7 @@ module.exports = {
     }
 };
 
-},{}],110:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37275,7 +37319,7 @@ module.exports = {
     }
 };
 
-},{}],111:[function(require,module,exports){
+},{}],112:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37299,7 +37343,7 @@ module.exports = {
     }
 };
 
-},{}],112:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37381,7 +37425,7 @@ module.exports = {
     }
 };
 
-},{}],113:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37439,7 +37483,7 @@ module.exports = {
     }
 };
 
-},{}],114:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37584,7 +37628,7 @@ module.exports = {
     }
 };
 
-},{}],115:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37692,7 +37736,7 @@ module.exports = {
     }
 };
 
-},{}],116:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37741,7 +37785,7 @@ module.exports = {
 	}
 };
 
-},{}],117:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37757,7 +37801,7 @@ module.exports = {
     }
 };
 
-},{}],118:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37802,7 +37846,7 @@ module.exports = {
     }
 };
 
-},{}],119:[function(require,module,exports){
+},{}],120:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37879,7 +37923,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/discounts":105}],120:[function(require,module,exports){
+},{"./../mixins/discounts":106}],121:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37923,7 +37967,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/discounts":105}],121:[function(require,module,exports){
+},{"./../mixins/discounts":106}],122:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -37966,7 +38010,7 @@ module.exports = {
     }
 };
 
-},{}],122:[function(require,module,exports){
+},{}],123:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38062,7 +38106,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/braintree":104}],123:[function(require,module,exports){
+},{"./../../mixins/braintree":105}],124:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38247,7 +38291,7 @@ module.exports = {
     }
 };
 
-},{}],124:[function(require,module,exports){
+},{}],125:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38290,14 +38334,14 @@ module.exports = {
     }
 };
 
-},{}],125:[function(require,module,exports){
+},{}],126:[function(require,module,exports){
 'use strict';
 
 module.exports = {
     props: ['user']
 };
 
-},{}],126:[function(require,module,exports){
+},{}],127:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38337,7 +38381,7 @@ module.exports = {
     }
 };
 
-},{}],127:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38411,7 +38455,7 @@ module.exports = {
     }
 };
 
-},{}],128:[function(require,module,exports){
+},{}],129:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38441,7 +38485,7 @@ module.exports = {
     }
 };
 
-},{}],129:[function(require,module,exports){
+},{}],130:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38469,7 +38513,7 @@ module.exports = {
 	}
 };
 
-},{}],130:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38513,7 +38557,7 @@ module.exports = {
 	}
 };
 
-},{}],131:[function(require,module,exports){
+},{}],132:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38541,7 +38585,7 @@ module.exports = {
     }
 };
 
-},{}],132:[function(require,module,exports){
+},{}],133:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38571,7 +38615,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/tab-state":109}],133:[function(require,module,exports){
+},{"./../mixins/tab-state":110}],134:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38620,7 +38664,7 @@ module.exports = {
     }
 };
 
-},{"./../mixins/plans":106,"./../mixins/subscriptions":108}],134:[function(require,module,exports){
+},{"./../mixins/plans":107,"./../mixins/subscriptions":109}],135:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38668,7 +38712,7 @@ module.exports = {
     }
 };
 
-},{}],135:[function(require,module,exports){
+},{}],136:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38709,7 +38753,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/plans":106,"./../../mixins/subscriptions":108}],136:[function(require,module,exports){
+},{"./../../mixins/plans":107,"./../../mixins/subscriptions":109}],137:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38802,7 +38846,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/braintree":104,"./../../mixins/plans":106,"./../../mixins/subscriptions":108}],137:[function(require,module,exports){
+},{"./../../mixins/braintree":105,"./../../mixins/plans":107,"./../../mixins/subscriptions":109}],138:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -38998,7 +39042,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/plans":106,"./../../mixins/subscriptions":108,"./../../mixins/vat":110}],138:[function(require,module,exports){
+},{"./../../mixins/plans":107,"./../../mixins/subscriptions":109,"./../../mixins/vat":111}],139:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39092,14 +39136,14 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/plans":106,"./../../mixins/subscriptions":108}],139:[function(require,module,exports){
+},{"./../../mixins/plans":107,"./../../mixins/subscriptions":109}],140:[function(require,module,exports){
 'use strict';
 
 module.exports = {
     props: ['user', 'teams']
 };
 
-},{}],140:[function(require,module,exports){
+},{}],141:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39247,7 +39291,7 @@ module.exports = {
     }
 };
 
-},{}],141:[function(require,module,exports){
+},{}],142:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39332,7 +39376,7 @@ module.exports = {
     }
 };
 
-},{}],142:[function(require,module,exports){
+},{}],143:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39354,7 +39398,7 @@ module.exports = {
     }
 };
 
-},{}],143:[function(require,module,exports){
+},{}],144:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39430,7 +39474,7 @@ module.exports = {
     }
 };
 
-},{}],144:[function(require,module,exports){
+},{}],145:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39551,7 +39595,7 @@ module.exports = {
     }
 };
 
-},{}],145:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39697,7 +39741,7 @@ module.exports = {
     }
 };
 
-},{}],146:[function(require,module,exports){
+},{}],147:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39741,14 +39785,14 @@ module.exports = {
     }
 };
 
-},{}],147:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
 'use strict';
 
 module.exports = {
     props: ['user', 'team']
 };
 
-},{}],148:[function(require,module,exports){
+},{}],149:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39806,7 +39850,7 @@ module.exports = {
     }
 };
 
-},{"./../../mixins/tab-state":109}],149:[function(require,module,exports){
+},{"./../../mixins/tab-state":110}],150:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39845,7 +39889,7 @@ module.exports = {
     }
 };
 
-},{}],150:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -39928,7 +39972,7 @@ module.exports = {
     }
 };
 
-},{}],151:[function(require,module,exports){
+},{}],152:[function(require,module,exports){
 'use strict';
 
 /*
@@ -39979,7 +40023,7 @@ if ($('#spark-app').length > 0) {
     require('vue-bootstrap');
 }
 
-},{"bootstrap/dist/js/npm":3,"jquery":16,"js-cookie":17,"moment":18,"promise":20,"underscore":28,"urijs":31,"vue-bootstrap":153}],152:[function(require,module,exports){
+},{"bootstrap/dist/js/npm":3,"jquery":16,"js-cookie":17,"moment":18,"promise":20,"underscore":28,"urijs":31,"vue-bootstrap":154}],153:[function(require,module,exports){
 'use strict';
 
 /**
@@ -40247,7 +40291,7 @@ module.exports = {
     }
 };
 
-},{}],153:[function(require,module,exports){
+},{}],154:[function(require,module,exports){
 'use strict';
 
 /*
@@ -40283,6 +40327,6 @@ require('./filters');
  */
 require('./forms/bootstrap');
 
-},{"./filters":91,"./forms/bootstrap":92,"./interceptors":96,"./mixin":103,"vue":35,"vue-resource":34}]},{},[36]);
+},{"./filters":92,"./forms/bootstrap":93,"./interceptors":97,"./mixin":104,"vue":35,"vue-resource":34}]},{},[36]);
 
 //# sourceMappingURL=app.js.map
