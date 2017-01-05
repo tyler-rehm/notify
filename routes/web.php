@@ -29,8 +29,13 @@ Route::group(['middleware' => 'auth'], function () {
 Route::get('test', function() {
     $user = ['email' => 'tyler@hackrforce.com', 'name' => 'Tyler'];
     $message = ['date' => '11/26', 'time' => '12:00 PM', 'guid' => str_random(25), 'message_id' => rand(0,1000)];
-    $result = (new AppointmentEmail)->withData($message)->sendTo($user);
+    $data = array_merge($user, $message);
+    $result = (new AppointmentEmail)->sendTemplate($data);
     dd($result);
+});
+
+Route::get('test2', function() {
+    include('../app/Emails/Mandrill.php');
 });
 
 Route::get('email/verify/{email}/{token}', 'UsersController@email_verify');

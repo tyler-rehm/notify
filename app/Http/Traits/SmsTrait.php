@@ -137,7 +137,7 @@ trait SmsTrait {
 
     private function getBody($message)
     {
-        dd($message);
+//        dd($message);
         if(empty($message->message)){
             $template = $this->getTemplate($message->current_team_id);
         } else {

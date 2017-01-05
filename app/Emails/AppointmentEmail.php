@@ -4,7 +4,7 @@ namespace App\Emails;
 
 use App\User;
 
-class AppointmentEmail extends CampaignMonitorEmail
+class AppointmentEmail extends Mandrill
 {
     /**
      * Get the email id.
@@ -13,7 +13,7 @@ class AppointmentEmail extends CampaignMonitorEmail
      */
     public function getEmailId()
     {
-        return 'acd7b149-6a82-46d0-9744-9749604efd1f';
+        return 'welcome';
     }
 
     /**
