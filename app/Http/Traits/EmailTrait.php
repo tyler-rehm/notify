@@ -13,10 +13,8 @@ trait EmailTrait {
     {
         if(!empty($settings->email)){
             $user = ['email' => $message->email, 'name' => $message->name];
-            $message = ['date' => $message->date, 'time' => $message->time, 'guid' => str_random(25), 'message_id' => $message->id];
-//            $result = (new AppointmentEmail)->withData($message)->sendTo($user);
+            $message = ['location' => 'Buddy Brew', 'date' => $message->date, 'time' => $message->time, 'guid' => $message->guid, 'message_id' => $message->id];
             $result = (new AppointmentEmail)->withData($message)->sendTo($user);
-            dd($result);
         }
     }
 }

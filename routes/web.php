@@ -26,16 +26,15 @@ Route::group(['middleware' => 'auth'], function () {
     Route::get('/messages', 'MessagesController@index');
 });
 
-Route::get('test', function() {
-    $user = ['email' => 'tyler@hackrforce.com', 'name' => 'Tyler'];
-    $message = ['date' => '11/26', 'time' => '12:00 PM', 'guid' => str_random(25), 'message_id' => rand(0,1000)];
-    $data = array_merge($user, $message);
-    $result = (new AppointmentEmail)->sendTemplate($data);
-    dd($result);
+Route::get('coming_soon', function() {
+    return view('coming_soon');
 });
 
-Route::get('test2', function() {
-    include('../app/Emails/Mandrill.php');
+Route::get('test', function() {
+    $user = ['email' => 'tyler@hackrforce.com', 'name' => 'Tyler'];
+    $message = ['date' => '11/26', 'time' => '12:00 PM', 'email_token' => str_random(25), 'location' => 'Buddy Brew Coffee House',  'message_id' => rand(0,1000)];
+    $result = (new AppointmentEmail)->withData($message)->sendTo($user);
+    dd($result);
 });
 
 Route::get('email/verify/{email}/{token}', 'UsersController@email_verify');

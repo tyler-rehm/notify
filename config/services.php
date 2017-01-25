@@ -35,8 +35,8 @@ return [
         'secret' => env('STRIPE_SECRET'),
     ],
 
-    'mandrill' => [
-        'secret' => env('MANDRILL_KEY')
+    'campaign_monitor' => [
+        'key' => env('CAMPAIGN_MONITOR_KEY')
     ]
 
 

@@ -13,7 +13,7 @@ class WelcomeEmail extends CampaignMonitorEmail
      */
     public function getEmailId()
     {
-        return 'b898da66-eefc-4f99-8407-5c48b4d943bc';
+        return '0f3a50a5-2bb1-458a-867d-75a2c9db8557';
     }
 
     /**

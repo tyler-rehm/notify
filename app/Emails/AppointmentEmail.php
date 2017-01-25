@@ -4,7 +4,7 @@ namespace App\Emails;
 
 use App\User;
 
-class AppointmentEmail extends Mandrill
+class AppointmentEmail extends CampaignMonitorEmail
 {
     /**
      * Get the email id.
@@ -13,17 +13,22 @@ class AppointmentEmail extends Mandrill
      */
     public function getEmailId()
     {
-        return 'welcome';
+        return '82826da8-3e4c-4c1a-8481-78ca1ab633c9';
     }
 
     /**
-     * Save token to user model.
+     * Get an array of variables for the CM email.
      *
-     * @param  $token, $email
-     * @return object
+     * @param  $user
+     * @return array
      */
-    private function saveToken($token, $email)
+    public function variables($user)
     {
-        return User::where('email', '=', $email)->update(['email_verification_token' => $token]);
+        foreach($user as $key => $val){
+            if(empty($this->data[$key])){
+                $this->data[$key] = $val;
+            }
+        }
+        return $this->data;
     }
 }

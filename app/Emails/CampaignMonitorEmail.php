@@ -28,6 +28,7 @@ abstract class CampaignMonitorEmail
     public function __construct($apiKey = null)
     {
         $this->apiKey = $apiKey ?: config('services.campaign_monitor.key');
+        print $this->apiKey;
     }
 
     /**
@@ -51,21 +52,18 @@ abstract class CampaignMonitorEmail
     public function sendTo($user)
     {
         $params = $this->getData($user);
-
         $mailer = $this->newTransaction();
         $result = $mailer->send([
             'To'   => $user['email'],
             'Data' => $params
         ]);
-
         $response = $result->response[0];
-
         $email = new Email;
         $email->status = $response->Status;
         $email->external_id = $response->MessageID;
         $email->recipient = $response->Recipient;
-        $email->template_id = $params['template_id'] ?: $this->getEmailId();
-        $email->message_id = $params['message_id'] ?: null;
+        $email->template_id = !empty($params['template_id']) ? $params['template_id'] : null;
+        $email->message_id = !empty($params['message_id']) ? $params['message_id'] : null;
         $email->save();
     }
 
@@ -83,7 +81,6 @@ abstract class CampaignMonitorEmail
                 array_merge(compact('user'), $this->data)
             );
         }
-        $this->data['domain'] =  url('/');
         return $this->data;
     }
 

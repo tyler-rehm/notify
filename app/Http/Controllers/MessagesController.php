@@ -44,7 +44,7 @@ class MessagesController extends Controller
                 }
             }
         }
-
+        $message->guid = str_random();
         $message->save();
 
         if($settings->sms){
@@ -91,7 +91,7 @@ class MessagesController extends Controller
     public function update_status($guid, $status, $method)
     {
         $message = Message::where('guid', $guid)->first();
-//        dd($message);
+        dd($message);
         if(!empty($message)){
             $message->status = $status;
             $message->method = $method;
