@@ -20,19 +20,6 @@ class CreateMessagesTable extends Migration
             $table->timestamps();
         });
 
-        DB::table('message_types')->insert(
-            array(
-                array(
-                    'name' => 'Broadcast',
-                    'description' => 'Send messages on the fly.',
-                ),
-                array(
-                    'name' => 'Appointment',
-                    'description' => 'Send messages for upcoming appointments.',
-                )
-            )
-        );
-
         Schema::create('template_types', function (Blueprint $table) {
             $table->increments('id');
             $table->string('name');
@@ -71,21 +58,11 @@ class CreateMessagesTable extends Migration
         Schema::create('sms_templates', function (Blueprint $table) {
             $table->increments('id');
             $table->integer('template_id')->unsigned();
-            $table->foreign('template_id')->references('id')->on('template_id');
+            $table->foreign('template_id')->references('id')->on('templates');
             $table->string('body');
             $table->string('variables')->nullable();
             $table->timestamps();
         });
-
-        DB::table('sms_templates')->insert(
-            array(
-                array(
-                    'template_id' => 3,
-                    'body' => 'You have an appointment scheduled for {date} at {time} with {company_name}. Please reply yes to confirm or no to cancel.',
-                    'variables' => 'date|time|company_name'
-                )
-            )
-        );
 
         Schema::create('email_templates', function (Blueprint $table) {
             $table->increments('id');
@@ -97,17 +74,6 @@ class CreateMessagesTable extends Migration
             $table->string('external_source')->nullable();
             $table->timestamps();
         });
-
-        DB::table('email_templates')->insert(
-            array(
-                array(
-                    'template_id' => 3,
-                    'external' => true,
-                    'external_id' => '',
-                    'external_source' => 'campaign_monitor'
-                )
-            )
-        );
 
         Schema::create('messages', function (Blueprint $table) {
             $table->increments('id');
