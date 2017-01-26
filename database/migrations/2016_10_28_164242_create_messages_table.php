@@ -40,23 +40,6 @@ class CreateMessagesTable extends Migration
             $table->timestamps();
         });
 
-        DB::table('template_types')->insert(
-            array(
-                array(
-                    'name' => 'Voice',
-                    'description' => 'Voice template.',
-                ),
-                array(
-                    'name' => 'SMS',
-                    'description' => 'Sms template.',
-                ),
-                array(
-                    'name' => 'Email',
-                    'description' => 'Email template.',
-                )
-            )
-        );
-
         Schema::create('template_sub_types', function (Blueprint $table) {
             $table->increments('id');
             $table->integer('parent_id')->unsigned();
@@ -65,36 +48,6 @@ class CreateMessagesTable extends Migration
             $table->string('description');
             $table->timestamps();
         });
-
-        DB::table('template_sub_types')->insert(
-            array(
-                array(
-                    'parent_id' => 1,
-                    'name' => 'Outbound Human Script',
-                    'description' => 'Human voice script'
-                ),
-                array(
-                    'parent_id' => 1,
-                    'name' => 'Outbound Machine Script',
-                    'description' => 'Machine voice script'
-                ),
-                array(
-                    'parent_id' => 2,
-                    'name' => 'Outbound SMS Script',
-                    'description' => 'SMS template'
-                ),
-                array(
-                    'parent_id' => 3,
-                    'name' => 'Outbound Email template',
-                    'description' => 'Email template'
-                ),
-                array(
-                    'parent_id' => 3,
-                    'name' => 'System Email template',
-                    'description' => 'Email template'
-                )
-            )
-        );
 
         Schema::create('templates', function (Blueprint $table) {
             $table->increments('id');
@@ -115,51 +68,6 @@ class CreateMessagesTable extends Migration
             $table->timestamps();
         });
 
-        DB::table('templates')->insert(
-            array(
-                array(
-                    'team_id' => 1,
-                    'template_type_id' => 1,        // Voice
-                    'template_sub_type_id' => 1,    // Human
-                    'message_type_id' => 2,         // Appointment
-                    'title' => 'Human Appointment Voice Script',
-                    'description' => 'Default appointment voice script for human pickups',
-                    'default' => true,
-                    'public' => true
-                ),
-                array(
-                    'team_id' => 1,
-                    'template_type_id' => 1,        // Voice
-                    'template_sub_type_id' => 2,    // Machine
-                    'message_type_id' => 2,         // Appointment
-                    'title' => 'Machine Appointment Voice Script',
-                    'description' => 'Default appointment voice script for machine pickups',
-                    'default' => true,
-                    'public' => true
-                ),
-                array(
-                    'team_id' => 1,
-                    'template_type_id' => 2,        // SMS
-                    'template_sub_type_id' => 3,    // Outbound
-                    'message_type_id' => 2,         // Appointment
-                    'title' => ' Appointment SMS template',
-                    'description' => 'Default appointment sms template',
-                    'default' => true,
-                    'public' => true
-                ),
-                array(
-                    'team_id' => 1,
-                    'template_type_id' => 3,        // Email
-                    'template_sub_type_id' => 4,    // Outbound
-                    'message_type_id' => 2,         // Appointment
-                    'title' => ' Appointment Email template',
-                    'description' => 'Default appointment email template',
-                    'default' => true,
-                    'public' => true
-                )
-            )
-        );
-
         Schema::create('sms_templates', function (Blueprint $table) {
             $table->increments('id');
             $table->integer('template_id')->unsigned();
@@ -178,45 +86,6 @@ class CreateMessagesTable extends Migration
                 )
             )
         );
-
-//        Schema::create('voice_templates', function (Blueprint $table) {
-//            $table->increments('id');
-//            $table->integer('template_id')->unsigned();
-//            $table->foreign('template_id')->references('id')->on('template_id');
-//            $table->string('transcript')->nullable();
-//            $table->timestamps();
-//        });
-//
-//        Schema::create('voice_template_part_types', function (Blueprint $table) {
-//            $table->increments('id');
-//            $table->string('name');
-//            $table->string('description');
-//            $table->timestamps();
-//        });
-//
-//        DB::table('voice_template_part_types')->insert(
-//            array(
-//                array(
-//                    'name' => 'Audio',
-//                    'description' => 'Play an audio file.',
-//                ),
-//                array(
-//                    'name' => 'TTS',
-//                    'description' => 'Play TTS of text input.',
-//                )
-//            )
-//        );
-//
-//        Schema::create('voice_template_parts', function (Blueprint $table) {
-//            $table->increments('id');
-//            $table->integer('voice_template_id')->unsigned();
-//            $table->foreign('voice_template_id')->references('id')->on('voice_templates');
-//            $table->integer('voice_template_part_type_id')->unsigned();
-//            $table->foreign('voice_template_part_type_id')->references('id')->on('voice_template_part_types');
-//            $table->integer('sequence');    // {n}-[yes/no] or [1,2,3]
-//            $table->integer('repeat')->nullable();
-//            $table->timestamps();
-//        });
 
         Schema::create('email_templates', function (Blueprint $table) {
             $table->increments('id');
