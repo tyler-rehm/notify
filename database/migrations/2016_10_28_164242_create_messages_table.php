@@ -67,7 +67,7 @@ class CreateMessagesTable extends Migration
         Schema::create('email_templates', function (Blueprint $table) {
             $table->increments('id');
             $table->integer('template_id')->unsigned();
-            $table->foreign('template_id')->references('id')->on('template_id');
+            $table->foreign('template_id')->references('id')->on('templates');
             $table->string('view')->nullable();
             $table->boolean('external')->default(false);
             $table->string('external_id')->nullable();
