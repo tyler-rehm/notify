@@ -109,9 +109,9 @@ class CreateMessagesTable extends Migration
             $table->string('title');
             $table->string('description')->nullable();
             $table->string('notes')->nullable();
-            $table->boolean('default')->defualt(false);
-            $table->boolean('public')->defualt(false);
-            $table->boolean('archived')->defualt(false);
+            $table->boolean('default')->default(false);
+            $table->boolean('public')->default(false);
+            $table->boolean('archived')->default(false);
             $table->timestamps();
         });
 
