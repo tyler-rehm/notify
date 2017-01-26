@@ -124,7 +124,7 @@ class CreateMessagesTable extends Migration
                     'message_type_id' => 2,         // Appointment
                     'title' => 'Human Appointment Voice Script',
                     'description' => 'Default appointment voice script for human pickups',
-                    'defualt' => true,
+                    'default' => true,
                     'public' => true
                 ),
                 array(
@@ -134,7 +134,7 @@ class CreateMessagesTable extends Migration
                     'message_type_id' => 2,         // Appointment
                     'title' => 'Machine Appointment Voice Script',
                     'description' => 'Default appointment voice script for machine pickups',
-                    'defualt' => true,
+                    'default' => true,
                     'public' => true
                 ),
                 array(
@@ -144,7 +144,7 @@ class CreateMessagesTable extends Migration
                     'message_type_id' => 2,         // Appointment
                     'title' => ' Appointment SMS template',
                     'description' => 'Default appointment sms template',
-                    'defualt' => true,
+                    'default' => true,
                     'public' => true
                 ),
                 array(
@@ -154,7 +154,7 @@ class CreateMessagesTable extends Migration
                     'message_type_id' => 2,         // Appointment
                     'title' => ' Appointment Email template',
                     'description' => 'Default appointment email template',
-                    'defualt' => true,
+                    'default' => true,
                     'public' => true
                 )
             )
