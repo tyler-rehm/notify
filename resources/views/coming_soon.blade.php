@@ -3,7 +3,7 @@
 <!--[if IE 9]> <html lang="en" class="ie9"> <![endif]-->
 <!--[if !IE]><!--> <html lang="en"> <!--<![endif]-->
 <head>
-    <title>Coming Soon | Unify - Responsive Website Template</title>
+    <title>Notiifii</title>
 
     <!-- Meta -->
     <meta charset="utf-8">
@@ -43,27 +43,16 @@
             <div class="col-md-12 coming-soon">
                 <h1>Coming Soon</h1>
                 <p>We are just as excited for launch day as you are. We are so close! Please provide your email below and you will be the first to know.</p><br>
-                <form>
                     <div class="input-group col-md-4 col-md-offset-4">
-
                         <form action="http://notiifii.createsend.com/t/d/s/nukktt/" method="post" id="subForm">
-                            <p>
-                                <input id="fieldName" name="cm-name" type="text" class="form-control" placeholder="Your Name"/>
-                            </p>
-                            <br/><br/>
-                            <p>
-                                <input id="fieldEmail" name="cm-nukktt-nukktt" type="email" required class="form-control" placeholder="Your Email"/>
-                            </p>
-                            <br/>
-                            <br/>
-                            <p>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Email your email..." id="fieldEmail" name="cm-nukktt-nukktt">
                                 <span class="input-group-btn">
-                                    <button type="submit" class="btn-u">Subscribe</button>
-                                </span>
-                            </p>
+                                <button class="btn" type="submit"><i class="fa fa-envelope-o"></i></button>
+                            </span>
+                            </div>
                         </form>
                     </div><!-- /input-group -->
-                </form>
             </div>
         </div>
 
@@ -77,7 +66,7 @@
     <!--=== Sticky Footer ===-->
     <div class="sticky-footer">
         <p class="copyright-space">
-            2016 &copy; Notiifii. ALL Rights Reserved.
+            {{ date('Y') }} &copy; Notiifii. ALL Rights Reserved.
         </p>
     </div>
     <!--=== End Sticky-Footer ===-->

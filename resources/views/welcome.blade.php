@@ -43,8 +43,8 @@
 
             <div class="col-md-6 equal-height-column text-center dp-table">
                 <div class="content-boxes-v3 dp-table-cell quote-v1 parallaxBg">
-                    <p>Everyone knows that debugging is twice as hard as writing a program in the first place. So if you're as clever as you can be when you write it, how will you ever debug it.</p>
-                    <span>Jimmy Howell, <a href="#">CEO, Director</a></span>
+                    <p>You have a business to worry about. Let us handle the customer engagement and ensure they're coming through that door each and every day.</p>
+                    <span>Tyler Rehm, CEO, Director</span>
                 </div>
             </div>
         </div>
@@ -57,22 +57,22 @@
             <div class="col-sm-4">
                 <div class="service-block service-block-purple no-margin-bottom content equal-height-column">
                     <i class="icon-custom icon-md rounded icon-color-light icon-line icon-badge"></i>
-                    <h2 class="font-light">Best Solutions</h2>
-                    <p class="no-margin-bottom font-light">Provide; shifting landscape reduce carbon emissions human potential sustainability Jane Addams solve. Global network; care Rockefeller, vaccines equal opportunity human being.</p>
+                    <h2 class="font-light">Best Solution</h2>
+                    <p class="no-margin-bottom font-light">We offer API and file based mass notification services via a multi-channel distributions. Our state of the art technology stack is built to handle our client's everchanging needs</p>
                 </div>
             </div>
             <div class="col-sm-4">
                 <div class="service-block service-block-red no-margin-bottom content equal-height-column">
                     <i class="icon-custom icon-md rounded icon-color-light icon-line icon-layers"></i>
                     <h2 class="font-light">Excellent Features</h2>
-                    <p class="no-margin-bottom font-light">Provide; shifting landscape reduce carbon emissions human potential sustainability Jane Addams solve. Global network; care Rockefeller, vaccines equal opportunity human being.</p>
+                    <p class="no-margin-bottom font-light">We provide on-demand elastic delivery that can handle your largest campaigns and continual outreach efforts. We can reach out via SMS, Email and Voice on your behalf.</p>
                 </div>
             </div>
             <div class="col-sm-4">
                 <div class="service-block service-block-blue no-margin-bottom content equal-height-column">
                     <i class="icon-custom icon-md rounded icon-color-light icon-line icon-support"></i>
                     <h2 class="font-light">Stunning Support</h2>
-                    <p class="no-margin-bottom font-light">Provide; shifting landscape reduce carbon emissions human potential sustainability Jane Addams solve. Global network; care Rockefeller, vaccines equal opportunity human being.</p>
+                    <p class="no-margin-bottom font-light">Our support team is dedicated to all of your needs and provide 24/7 monitoring and delivery assurance to ensure each and every message is delivered successfully.</p>
                 </div>
             </div>
         </div>
@@ -84,8 +84,10 @@
         <div class="container content-sm">
             <div class="headline-center">
                 <h2>WE ARE HIRING!</h2>
-                <p class="space-lg-hor">Lorem ipsum dolor <span class="color-green">sit amet consectetur</span> adipiscing elit. Nam eget varius leo, at elementum eros. Fusce tristique, ipsum egestas fermentum imperdiet, ex nunc iaculis sem, a semper augue turpis ut nulla. Nam condimentum arcu eu diam <span class="color-green">gravida cursus</span> morbi ante eros.</p><br>
+                <p class="space-lg-hor">We are looking to <a href="mailto:hr@notiifii.com">hire</a> the best of the best. If you are ready to join the ranks of an ever growing, hungry team that is building the next generation of multi-channel customer outreach tools, you found the right place. Please feel free to <a href="mailto:hr@notiifii.com">send us</a> your resume and a brief explanation of why you belong at Notiifii.</p>
+                <br/>
             </div>
+            <br/>
             <img class="img-responsive img-center wow animated fadeInUp" src="/vendor/unify/assets/img/map-img-v1.png" alt="">
         </div>
     </div>

@@ -26,6 +26,14 @@ Route::group(['middleware' => 'auth'], function () {
     Route::get('/messages', 'MessagesController@index');
 });
 
+Route::get('/register', function() {
+    return redirect('coming_soon');
+});
+
+Route::get('about', function() {
+    return view('pages/about');
+});
+
 Route::get('coming_soon', function() {
     return view('coming_soon');
 });

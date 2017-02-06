@@ -29,7 +29,7 @@
                     <!-- End Home -->
 
                     <!-- Company -->
-                    <li class="dropdown active">
+                    <li class="dropdown">
                         <a href="javascript:void(0);" class="dropdown-toggle" data-toggle="dropdown">
                             Company
                         </a>
@@ -40,9 +40,9 @@
                             <li class="dropdown-submenu">
                                 <a href="javascript:void(0);">Services</a>
                                 <ul class="dropdown-menu">
-                                    <li><a target="_blank" href="One-Pages/Classic/index.html">- Voice</a></li>
-                                    <li><a target="_blank" href="One-Pages/Classic/one_page_dark.html">- SMS</a></li>
-                                    <li><a target="_blank" href="One-Pages/Classic/one_page_home1.html">- Email</a></li>
+                                    <li><a href="/services/voice">- Voice</a></li>
+                                    <li><a href="/services/sms">- SMS</a></li>
+                                    <li><a href="/services/email">- Email</a></li>
                                 </ul>
                             </li>
                             <!-- End Services -->

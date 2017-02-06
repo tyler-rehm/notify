@@ -6,7 +6,7 @@
                 <!-- About Us -->
                 <div class="col-md-3 sm-margin-bottom-40">
                     <div class="heading-footer"><h2>About Notiifii</h2></div>
-                    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis blandit ut metus a commodo. Pellentesque congue tellus sed enim sollicitudin, id blandit mauris eleifend.</p>
+                    <p>There are many customer outreach & engagement solutions out there. Welcome to the last one you will ever need. Here at Notiifii we are relentless in ensuring we stay in constant communication with your customers and are able to reach them in a meaningful, effective way.</p>
                 </div>
                 <!-- End About Us -->
 
