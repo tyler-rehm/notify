@@ -115,3 +115,4 @@
     </div>
     <!--=== Subscribe Form ===-->
 @endsection
+@include('partials.demo')

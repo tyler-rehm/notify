@@ -18,7 +18,8 @@
         "bugsnag/bugsnag": "^3.0",
         "bugsnag/bugsnag-laravel": "^2.0",
         "weblee/mandrill": "dev-master",
-        "skovmand/mailchimp-laravel": "1.*"
+        "skovmand/mailchimp-laravel": "1.*",
+        "greggilbert/recaptcha": "dev-master"
     },
     "require-dev": {
         "fzaninotto/faker": "~1.4",

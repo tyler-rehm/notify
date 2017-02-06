@@ -34,6 +34,10 @@ Route::get('about', function() {
     return view('pages/about');
 });
 
+Route::get('demo', function() {
+    return view('pages/demo');
+});
+
 Route::get('cookies', function() {
     return view('pages/cookies');
 });

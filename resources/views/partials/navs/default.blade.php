@@ -55,7 +55,8 @@
                     <!-- End Company -->
 
                     <!-- Home -->
-                    <li><a href="/demo">Demo</a></li>
+                    <li><a class="btn-u" data-toggle="modal" data-target="#demo_modal">Demo</a></li>
+
                     <!-- End Home -->
 
                     <!-- Home -->
