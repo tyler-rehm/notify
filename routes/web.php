@@ -34,6 +34,22 @@ Route::get('about', function() {
     return view('pages/about');
 });
 
+Route::get('cookies', function() {
+    return view('pages/cookies');
+});
+
+Route::get('eula', function() {
+    return view('pages/eula');
+});
+
+Route::get('privacy', function() {
+    return view('pages/privacy');
+});
+
+Route::get('terms', function() {
+    return view('pages/terms');
+});
+
 Route::get('coming_soon', function() {
     return view('coming_soon');
 });

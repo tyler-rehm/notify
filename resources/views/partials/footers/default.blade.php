@@ -60,7 +60,8 @@
                         <li class="silver">Copyright © {{ date('Y') }} - All Rights Reserved</li>
                         <li><a href="/terms">Terms of Use</a></li>
                         <li><a href="/privacy">Privacy and Policy</a></li>
-                        <li><a href="/license">License</a></li>
+                        <li><a href="/eula">EULA</a></li>
+                        <li><a href="/cookies">Cookies</a></li>
                         <li><a href="mailto:support@notiifii.com">Support</a></li>
                     </ul>
                 </div>
