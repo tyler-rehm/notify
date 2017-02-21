@@ -44,7 +44,7 @@
             <div class="col-md-6 equal-height-column text-center dp-table">
                 <div class="content-boxes-v3 dp-table-cell quote-v1 parallaxBg">
                     <p>You have a business to worry about. Let us handle the customer engagement and ensure they're coming through that door each and every day.</p>
-                    <span>Tyler Rehm, CEO, Director</span>
+                    <span>Tyler Rehm, CEO</span>
                 </div>
             </div>
         </div>
@@ -92,27 +92,14 @@
         </div>
     </div>
     <!--=== End Hire Block ===-->
-
-    <!--=== Subscribe Form ===-->
-    <div class="shop-subscribe bg-color-red">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-8 md-margin-bottom-20">
-                    <h2>subscribe for upcoming <strong>updates</strong></h2>
-                </div>
-                <div class="col-md-4">
-                    <form action="http://notiifii.createsend.com/t/d/s/nukktt/" method="post" id="subForm">
-                        <div class="input-group">
-                            <input type="text" class="form-control" placeholder="Email your email..." id="fieldEmail" name="cm-nukktt-nukktt">
-                            <span class="input-group-btn">
-                                <button class="btn" type="submit"><i class="fa fa-envelope-o"></i></button>
-                            </span>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div><!--/end container-->
-    </div>
-    <!--=== Subscribe Form ===-->
 @endsection
 @include('partials.demo')
+@section('css')
+    <style>
+        .newsletter-submit
+        {
+            padding-top:2px;
+            padding-bottom:2px;
+        }
+    </style>
+@endsection

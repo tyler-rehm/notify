@@ -58,6 +58,10 @@ Route::get('coming_soon', function() {
     return view('coming_soon');
 });
 
+Route::get('services', function() {
+    return view('pages.services');
+});
+
 Route::get('test', function() {
     $user = ['email' => 'tyler@hackrforce.com', 'name' => 'Tyler'];
     $message = ['date' => '11/26', 'time' => '12:00 PM', 'email_token' => str_random(25), 'location' => 'Buddy Brew Coffee House',  'message_id' => rand(0,1000)];

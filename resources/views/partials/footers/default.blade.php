@@ -1,4 +1,25 @@
 <!--=== Footer v6 ===-->
+<!--=== Subscribe Form ===-->
+<div class="shop-subscribe bg-color-red">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 md-margin-bottom-20">
+                <h2>subscribe for upcoming <strong>updates</strong></h2>
+            </div>
+            <div class="col-md-4">
+                <form action="http://notiifii.createsend.com/t/d/s/nukktt/" method="post" id="subForm">
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Email your email..." id="fieldEmail" name="cm-nukktt-nukktt">
+                        <span class="input-group-btn">
+                            <button class="btn" type="submit"><i class="fa fa-envelope-o newsletter-submit"></i></button>
+                        </span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div><!--/end container-->
+</div>
+<!--=== Subscribe Form ===-->
 <div id="footer-v6" class="footer-v6">
     <div class="footer">
         <div class="container">
@@ -70,16 +91,6 @@
                         <li>
                             <a data-placement="top" data-toggle="tooltip" class="tooltips" data-original-title="Facebook" href="http://fb.me/notiifii">
                                 <i class="fa fa-facebook"></i>
-                            </a>
-                        </li>
-                        <li>
-                            <a data-placement="top" data-toggle="tooltip" class="tooltips" data-original-title="Google plus" href="#">
-                                <i class="fa fa-google-plus"></i>
-                            </a>
-                        </li>
-                        <li>
-                            <a data-placement="top" data-toggle="tooltip" class="tooltips" data-original-title="Youtube" href="#">
-                                <i class="fa fa-youtube"></i>
                             </a>
                         </li>
                     </ul>

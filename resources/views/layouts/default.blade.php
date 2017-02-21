@@ -15,6 +15,7 @@
     <link rel="shortcut icon" href="favicon.ico">
 
     @include('partials.headers.default')
+    @yield('css')
 </head>
 
 <body class="header-fixed">

@@ -38,12 +38,7 @@
 
                             <!-- Services -->
                             <li class="dropdown-submenu">
-                                <a href="javascript:void(0);">Services</a>
-                                <ul class="dropdown-menu">
-                                    <li><a href="/services/voice">- Voice</a></li>
-                                    <li><a href="/services/sms">- SMS</a></li>
-                                    <li><a href="/services/email">- Email</a></li>
-                                </ul>
+                            <li><a href="/services">Services</a></li>
                             </li>
                             <!-- End Services -->
 
