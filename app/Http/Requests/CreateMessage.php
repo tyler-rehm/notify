@@ -25,10 +25,11 @@ class CreateMessage extends FormRequest
     {
         return [
             'name' => 'required|max:255',
-            'email' => 'required|email',
+            'email' => 'email',
             'phone_number' => 'required|digits:10',
             'message_type_id' => 'required|min:0',
-            'message' => 'required'
+            'message' => 'min:25',
+            'g-recaptcha-response' => 'recaptcha'
         ];
     }
 }

@@ -8,12 +8,14 @@
             </div>
             <div class="modal-body">
                 <div class="row">
+                    <form action="/demo" method="post" id="subForm">
+                    {{ csrf_field() }}
                     <div class="col-md-6">
                         <h4>Contact Information</h4>
                         <p><label for="name">Name</label></p>
                         <p><input class="form-control" type="text" name="name" /></p>
                         <p><label for="name">Phone</label></p>
-                        <p><input class="form-control" type="text" name="phone" /></p>
+                        <p><input class="form-control" type="text" name="phone_number" /></p>
                         <p><label for="name">Email</label></p>
                         <p><input class="form-control" type="text" name="email" /></p>
                     </div>
@@ -31,22 +33,24 @@
                         </div>
                         <div>
                             <p><label for="type">Types</label></p>
-                            <select name="type" class="form-control" >
+                            <select name="message_type_id" class="form-control" >
                                 <option value="0" default>Appointment</option>
                                 <option value="1">Birthday</option>
                                 <option value="2">Marketing</option>
                             </select>
                         </div>
                     </div>
-                </div>
-                <div class="col-md-12">
-                    {!! Recaptcha::render() !!}
+                    <br/>
+                    <div class="col-md-12">
+                        {!! Recaptcha::render() !!}
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-u btn-u-default" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn-u btn-u-primary">Go!</button>
+                <button type="submit" class="btn-u btn-u-primary">Go!</button>
             </div>
+            </form>
         </div>
     </div>
 </div>

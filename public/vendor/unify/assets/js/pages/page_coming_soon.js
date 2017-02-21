@@ -3,7 +3,7 @@ var PageComingSoon = function () {
       //Coming Soon
       initPageComingSoon: function () {
 			var newYear = new Date();
-			newYear = new Date(2017, 1, 1);
+			newYear = new Date(2017, 2, 1);
 			$('#defaultCountdown').countdown({until: newYear})
         }
     };

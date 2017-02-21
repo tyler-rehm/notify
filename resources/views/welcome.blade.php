@@ -93,7 +93,6 @@
     </div>
     <!--=== End Hire Block ===-->
 @endsection
-@include('partials.demo')
 @section('css')
     <style>
         .newsletter-submit

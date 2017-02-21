@@ -34,9 +34,7 @@ Route::get('about', function() {
     return view('pages/about');
 });
 
-Route::get('demo', function() {
-    return view('pages/demo');
-});
+Route::post('demo', 'MessagesController@demo');
 
 Route::get('cookies', function() {
     return view('pages/cookies');
@@ -60,6 +58,14 @@ Route::get('coming_soon', function() {
 
 Route::get('services', function() {
     return view('pages.services');
+});
+
+Route::get('pricing', function() {
+    return view('pages.pricing');
+});
+
+Route::get('faqs', function() {
+    return view('pages.faqs');
 });
 
 Route::get('test', function() {

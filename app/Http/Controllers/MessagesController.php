@@ -11,6 +11,7 @@ use App\Http\Traits\EmailTrait;
 use App\Http\Traits\SmsTrait;
 use App\Http\Traits\VoiceTrait;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Mail;
 
 
 class MessagesController extends Controller
@@ -24,6 +25,31 @@ class MessagesController extends Controller
         $team_id = $request->user()->current_team_id;
         $appointments = Message::where('team_id', $team_id)->where('archived', NULL)->get();
         return view('messages.index')->with('appointments', $appointments);
+    }
+
+    public function demo(CreateMessage $request)
+    {
+        dd($request->all());
+
+        // based on that, auto generate message info
+        switch ($request->message_type_id){
+            case 0:     // appointment
+                break;
+            case 1:     // birthday
+                break;
+            case 2:     // marketing
+                break;
+        }
+
+        // log message information
+        // send
+        $this->add($request);
+
+        // notify management/admin of demo
+        Mail::send('emails.admin.default', ['key' => 'value'], function($message)
+        {
+            $message->to('tyler@notiifii.com', 'Tyler Rehm')->subject('New Demo!');
+        });
     }
 
     public function add(CreateMessage $request)

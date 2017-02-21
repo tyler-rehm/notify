@@ -29,6 +29,7 @@
 
     @yield('content')
     @include('partials.footers.default')
+    @include('partials.demo')
 </div>
 @include('partials.js.default')
 </body>
